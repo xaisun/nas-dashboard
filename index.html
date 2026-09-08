@@ -85,7 +85,9 @@
   .date-card, .lunar-card, .weather-card, .device-card { min-width:0; }
   .date-card { display:flex; flex-direction:column; justify-content:center; }
   .lunar-card { display:flex; flex-direction:column; justify-content:center; gap:7px; }
-  .weather-card { display:flex; flex-direction:column; }
+  /* justify-content:center 与 date/lunar/device 卡一致: 内容垂直居中,
+     即使页面被滚动/窗口顶部被裁, 温度也不会像顶格排那样先被切掉(踩过坑) */
+  .weather-card { display:flex; flex-direction:column; justify-content:center; gap:10px; }
   .device-card { display:flex; flex-direction:column; justify-content:center; }
   .date-main { font-size:40px; font-weight:800; letter-spacing:1px; line-height:1.1; white-space:nowrap; }
   .date-sub { color:var(--dim); margin-top:10px; font-size:40px; letter-spacing:1px; line-height:1.2; }
