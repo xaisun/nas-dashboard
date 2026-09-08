@@ -44,6 +44,85 @@ sudo docker compose up -d --build
 - 挂载 `/var/run/docker.sock`：用于显示容器状态。
 - `network_mode: host`：直接监控宿主机真实网卡与端口。
 
+## 存储空间容量采集（`host_mounts_gen.py`）
+
+看板的**「存储空间 / 硬盘」容量**（已用 / 总量 / 百分比）不是容器里算的，而是由宿主侧脚本 `host_mounts_gen.py` 采集后写入 `host_mounts.json`，再通过整目录 bind 挂载暴露给容器（容器读取 `/app/host_mounts.json`）。
+
+**为什么不在容器里直接 `df`？** 两个原因：
+
+1. 容器看不到宿主的真实挂载点，`df` 结果不准；
+2. **会唤醒休眠的机械盘** —— 一次容量采集把正在休眠的盘叫醒，省电和静音就都白费了。
+
+这个脚本的采集策略是「休眠安全」的：
+
+| 步骤 | 做法 | 是否会唤醒硬盘 |
+|------|------|----------------|
+| 拿盘树 / 总容量 / 是否 SSD | `lsblk -b -J`（只读 `/sys`） | ❌ 不会 |
+| 判断机械盘是否醒着 | 读 `/proc/diskstats`（内核纯内存统计）比较累计扇区数是否变化 | ❌ 不会 |
+| 取真实用量 | **只对活跃盘** `df`；SSD 恒视为活跃 | ✅ 仅对已醒的盘 |
+| 休眠盘 | 沿用 `host_mounts.json` 里上次的缓存用量 | ❌ 不会 |
+
+### 用法
+
+在**宿主（NAS）上**执行，普通用户即可（不需要 root）：
+
+```bash
+cd <你的部署目录>/nas-dashboard
+python3 host_mounts_gen.py
+```
+
+输出示例：
+
+```
+host_mounts.json updated: 6 disks; active->df: 2
+```
+
+会生成两个文件：
+
+- `host_mounts.json` —— 给看板读的数据（原子写入：先写 `.tmp` 再 `os.replace`，避免读到半截文件）
+- `host_mounts.state` —— 上次 `/proc/diskstats` 的扇区快照，供下次比较判断活跃
+
+只需 Python 3 标准库，**无第三方依赖**。
+
+### 定时采集（推荐）
+
+容量变化很慢，每 10 分钟跑一次就够。加一条 crontab：
+
+```bash
+*/10 * * * * cd <你的部署目录>/nas-dashboard && /usr/bin/python3 host_mounts_gen.py >> host_mounts.log 2>&1
+```
+
+> 首次运行建议手动先跑一次，确认 `host_mounts.json` 生成正常再加定时任务。
+
+### 数据字段
+
+`host_mounts.json` 是一个数组，每项：
+
+```json
+{
+  "name": "sdb",
+  "size": 4000787030016,
+  "ssd": false,
+  "volumes": "/vol2 + /vol3",
+  "power": "unknown",
+  "used": 1200137064448,
+  "percent": 30.0
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `name` | 整盘设备名（`loop` / `ram` 开头的虚拟盘已跳过） |
+| `size` | 总容量（字节） |
+| `ssd` | 是否固态（`lsblk` 的 `ROTA=0` 判定） |
+| `volumes` | 该盘上的挂载点，`/` 显示为「系统盘」，无挂载显示「未挂载」 |
+| `power` | 电源状态：`ssd` 或 `unknown`（真实 active/standby 由看板「硬盘状态」卡片推断） |
+| `used` / `percent` | 已用字节 / 百分比；**休眠盘为上次缓存值**，首次采集前可能为 `null` |
+
+### 没有这个文件会怎样
+
+看板不会报错，`app.py` 会自动回退到「容器内只读 `lsblk`」模式：盘的型号、容量、类型都正常显示，但**已用 / 百分比显示 "—"**。想要容量数字，就把这个脚本跑起来。
+
 ## 不带 Docker 直接运行（调试用）
 
 ```bash
@@ -63,9 +142,20 @@ PORT=8904 .venv/bin/python app.py
 
 ```
 nas-dashboard/
-├── app.py              # Flask 后端: 采集 /proc、smartctl、Docker API
-├── index.html          # 前端单页(纯原生, 无外部依赖)
+├── app.py                # Flask 后端: 采集 /proc、smartctl、Docker API
+├── index.html            # 前端单页(纯原生, 无外部依赖)
+├── host_mounts_gen.py    # 宿主侧容量采集(休眠安全), 生成 host_mounts.json
+├── deploy.sh             # 一键部署脚本(检查 Docker + compose up)
+├── power_probe.sh        # 硬盘电源状态探测(调试用)
+├── disk_power_probe.sh   # 整盘电源状态批量探测(调试用)
+├── survey.sh             # 宿主环境勘察(调试用)
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
 ```
+
+运行时生成（已在 `.gitignore` 中忽略或在部署目录产生，不入仓库）：
+
+- `host_mounts.json` —— 容量数据，由 `host_mounts_gen.py` 生成，经目录挂载供容器读取
+- `host_mounts.state` —— 上次 diskstats 扇区快照
+- `__pycache__/` —— Python 缓存

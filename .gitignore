@@ -8,6 +8,11 @@ __pycache__/
 .env
 .env.local
 
+# 宿主侧采集产物(由 host_mounts_gen.py 生成)
+host_mounts.json
+host_mounts.json.tmp
+host_mounts.state
+
 # 编辑器 / 系统
 .vscode/
 .idea/
