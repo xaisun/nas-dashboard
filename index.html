@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAS 监控看板</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --glow1: rgba(56,189,248,.10);
+    --glow2: rgba(52,211,153,.07);
+    --card: rgba(255,255,255,.045);
+    --border: rgba(255,255,255,.09);
+    --text: #e6edf6;
+    --dim: #8b9bb4;
+    --accent: #38bdf8;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --chip: rgba(255,255,255,.05);
+    --track: rgba(255,255,255,.08);
+    --divider: rgba(255,255,255,.07);
+    --scroll: rgba(255,255,255,.15);
+    --scroll-hover: rgba(255,255,255,.3);
+    --ok-bg: rgba(52,211,153,.12);  --ok-bd: rgba(52,211,153,.35);
+    --warn-bg: rgba(251,191,36,.12); --warn-bd: rgba(251,191,36,.35);
+    --fail-bg: rgba(248,113,113,.12);
+    --na-bg: rgba(139,155,180,.12);
+    --btn-bg: rgba(255,255,255,.06);
+    --btn-bg-hover: rgba(255,255,255,.12);
+    --radius: 14px;
+  }
+  [data-theme="light"] {
+    --bg: #eef2f7;
+    --glow1: rgba(2,132,199,.09);
+    --glow2: rgba(5,150,105,.06);
+    --card: rgba(255,255,255,.88);
+    --border: rgba(15,40,80,.13);
+    --text: #1e293b;
+    --dim: #5b6b84;
+    --accent: #0284c7;
+    --green: #059669;
+    --amber: #d97706;
+    --red: #dc2626;
+    --chip: rgba(15,40,80,.05);
+    --track: rgba(15,40,80,.09);
+    --divider: rgba(15,40,80,.08);
+    --scroll: rgba(15,40,80,.2);
+    --scroll-hover: rgba(15,40,80,.35);
+    --ok-bg: rgba(5,150,105,.1);  --ok-bd: rgba(5,150,105,.4);
+    --warn-bg: rgba(217,119,6,.12); --warn-bd: rgba(217,119,6,.4);
+    --fail-bg: rgba(220,38,38,.1);
+    --na-bg: rgba(91,107,132,.12);
+    --btn-bg: rgba(15,40,80,.05);
+    --btn-bg-hover: rgba(15,40,80,.1);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:
+      radial-gradient(1200px 500px at 80% -10%, var(--glow1), transparent 60%),
+      radial-gradient(900px 400px at 10% -10%, var(--glow2), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;
+    min-height:100vh; padding:18px;
+    transition:background .3s;
+  }
+  .wrap { max-width:1920px; margin:0 auto; display:flex; flex-direction:column;
+          min-height:calc(100vh - 36px); }
+
+  /* ---------- 九宫格 (3x3)：
+        第1排 时间日历 / 天气 / 黄历
+        第2排 NAS设备 / 快捷入口 / 容器
+        第3排 CPU / 内存 / 网络 ---------- */
+  .nine-grid {
+    display:grid; grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,210px); grid-auto-rows:210px; gap:14px; margin-bottom:14px;
+    align-items:stretch;
+  }
+  .card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius); padding:16px 18px; backdrop-filter:blur(6px);
+  }
+  .nine-grid .card { min-width:0; }
+  .date-card, .lunar-card, .weather-card, .device-card { min-width:0; }
+  .date-card { display:flex; flex-direction:column; justify-content:center; }
+  .lunar-card { display:flex; flex-direction:column; justify-content:center; gap:7px; }
+  .weather-card { display:flex; flex-direction:column; }
+  .device-card { display:flex; flex-direction:column; justify-content:center; }
+  .date-main { font-size:40px; font-weight:800; letter-spacing:1px; line-height:1.1; white-space:nowrap; }
+  .date-sub { color:var(--dim); margin-top:10px; font-size:40px; letter-spacing:1px; line-height:1.2; }
+  .lunar { color:var(--accent); font-size:19px; margin-top:8px; font-weight:600; display:block; }
+
+  .weather-head { display:flex; align-items:center; gap:12px; }
+  .w-icon { font-size:44px; line-height:1; }
+  .w-temp { font-size:34px; font-weight:700; }
+  .w-desc { color:var(--dim); font-size:14px; margin-top:2px; }
+  .w-city { font-size:13px; color:var(--dim); }
+  .w-days { display:flex; gap:14px; margin-top:12px; }
+  .w-day { flex:1; text-align:center; background:var(--chip);
+           border-radius:10px; padding:8px 4px; font-size:13px; }
+  .w-day .d { color:var(--dim); font-size:12px; }
+  .w-day .t { margin-top:4px; font-size:13px; }
+  .w-day .r { color:var(--amber); font-size:12px; margin-top:2px; }
+
+  .dev-name { font-size:22px; font-weight:700; display:flex; align-items:center; gap:10px; }
+  .dev-name .badge.on { margin-left:auto; }   /* 在线/实时徽章靠右 */
+  .badge { font-size:12px; padding:3px 10px; border-radius:99px; font-weight:600; }
+  .badge.on { background:var(--ok-bg); color:var(--green); border:1px solid var(--ok-bd); }
+  .live { background:var(--ok-bg); color:var(--green); border:1px solid var(--ok-bd); padding:2px 10px; border-radius:99px; font-size:12px; font-weight:600; margin-left:8px; animation:livepulse 2s infinite; }
+  @keyframes livepulse { 0%,100% {{ opacity:1; }} 50% {{ opacity:.45; }} }
+  .node-id { color:var(--dim); font-size:13px; margin-top:4px; font-family:ui-monospace,monospace; }
+  .ip-row { display:flex; justify-content:space-between; margin-top:10px; font-size:13px; color:var(--dim); }
+  .ip-row b { color:var(--text); font-family:ui-monospace,monospace; font-weight:500; }
+  .uptime { margin-top:8px; font-size:13px; color:var(--dim); display:flex; justify-content:space-between; align-items:center; }
+  .uptime b { color:var(--green); font-weight:600; }
+
+  /* 黄历 */
+  #alm-title { font-size:13px; color:var(--dim); line-height:1.35; }
+  .alm-row { display:flex; align-items:flex-start; gap:8px; font-size:15px; line-height:1.55; }
+  .alm-l { font-weight:700; padding:0 7px; border-radius:4px; font-size:12px; min-width:20px; text-align:center; flex-shrink:0; line-height:1.5; }
+  .alm-l.good { background:var(--ok-bg); color:var(--green); }
+  .alm-l.bad { background:var(--fail-bg); color:var(--red); }
+  .alm-v { color:var(--text); }
+  .alm-extra { font-size:12.5px; color:var(--dim); margin-top:4px; }
+
+  /* ---------- 下方: 存储空间 / 硬盘状态 (两卡并排) ---------- */
+  .sd-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;
+            min-height:0; }
+  .panel { display:flex; flex-direction:column; min-height:0; }
+  .panel .fill { flex:1; min-height:0; overflow:auto; scrollbar-width:thin;
+                 scrollbar-color:var(--scroll) transparent; }
+  .panel .fill::-webkit-scrollbar { width:5px; }
+  .panel .fill::-webkit-scrollbar-track { background:transparent; }
+  .panel .fill::-webkit-scrollbar-thumb { background:var(--scroll); border-radius:99px; }
+  .panel h3 {
+    font-size:13px; color:var(--dim); font-weight:600; letter-spacing:2px;
+    margin-bottom:12px; display:flex; align-items:center; gap:8px;
+  }
+  .panel h3 .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+
+  /* CPU 温度颜色条: <=50 浅蓝 / 51-64 深蓝 / >=65 红 (位于 CPU 卡底部, 宽度随温度动态) */
+  .temp-bar { height:18px; background:var(--track); border-radius:99px; overflow:hidden; margin:10px 0 0; position:relative; }
+  .temp-bar i { display:block; height:100%; width:0%; border-radius:99px;
+                transition:width .6s ease, background .6s ease; }
+  .temp-bar span { position:absolute; left:2px; top:0; bottom:0; display:flex; align-items:center; justify-content:center;
+                   font-size:11.5px; font-weight:700; color:#facc15; letter-spacing:.5px; pointer-events:none; white-space:nowrap; }
+
+  /* CPU */
+  .cpu-body { display:flex; align-items:center; gap:18px; flex:1 1 auto; min-height:0; }
+  .gauge { position:relative; width:110px; height:110px; flex-shrink:0; }
+  .gauge svg { transform:rotate(-90deg); }
+  .gauge .val { position:absolute; inset:0; display:flex; flex-direction:column;
+                align-items:center; justify-content:center; }
+  .gauge .val b { font-size:24px; }
+  .gauge .val span { font-size:11px; color:var(--dim); }
+  .cpu-info { flex:1; font-size:13px; }
+  .cpu-info .model { color:var(--dim); font-size:12px; line-height:1.5; margin-bottom:8px; }
+  .kv { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed var(--divider); }
+  .kv:last-child { border-bottom:none; }
+  .kv span { color:var(--dim); }
+  .kv b { font-weight:600; }
+
+  /* 内存 */
+  .mem-total { font-size:24px; font-weight:700; }
+  .mem-total small { font-size:13px; color:var(--dim); font-weight:400; }
+  .bar { height:10px; border-radius:99px; background:var(--track); overflow:hidden; margin:12px 0 8px; }
+  .bar i { display:block; height:100%; border-radius:99px; transition:width .6s ease; }
+  .mem-detail { display:flex; justify-content:space-between; font-size:13px; color:var(--dim); }
+
+  /* 网络 */
+  .net-speed { font-size:19px; font-weight:700; }
+  .net-speed small { font-size:12px; color:var(--dim); font-weight:400; }
+  .net-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
+  .net-item { background:var(--chip); border-radius:10px; padding:6px 9px; }
+  .net-item .l { font-size:11px; color:var(--dim); }
+  .net-item .v { font-size:15px; font-weight:700; margin-top:2px; }
+  .net-item .v.up { color:var(--accent); } .net-item .v.down { color:var(--green); }
+
+  /* 容器 */
+  .ct-count { font-size:24px; font-weight:700; }
+  .ct-count small { font-size:13px; color:var(--dim); font-weight:400; }
+  .ct-list { margin-top:10px; flex:1; min-height:50px; overflow-y:auto; font-size:13px; scrollbar-width:thin; scrollbar-color:var(--scroll) transparent; }
+  /* 九宫格中: 容器列表限高内部滚动, 防止把所在行撑高破坏九宫格对齐 */
+  .nine-grid .card.panel .ct-list { max-height:112px; }
+  .ct-list::-webkit-scrollbar { width:5px; }
+  .ct-list::-webkit-scrollbar-track { background:transparent; }
+  .ct-list::-webkit-scrollbar-thumb { background:var(--scroll); border-radius:99px; }
+  .ct-list::-webkit-scrollbar-thumb:hover { background:var(--scroll-hover); }
+  .ct-item { padding:8px 0; border-bottom:1px solid var(--line); }
+  .ct-item:last-child { border-bottom:none; }
+  .ct-top { display:flex; align-items:center; gap:8px; }
+  .ct-ico { font-size:18px; line-height:1; }
+  .ct-name { font-weight:600; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ct-name small { color:var(--dim); font-weight:400; font-size:11px; margin-left:6px; }
+  .ct-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; padding-left:26px; }
+  .ct-open { display:inline-flex; align-items:center; gap:3px; padding:2px 9px; border-radius:8px; background:var(--chip); color:var(--accent); text-decoration:none; font-size:12px; font-weight:600; }
+  .ct-open:hover { background:var(--accent); color:#fff; }
+  .ct-nopub { color:var(--dim); font-size:11px; align-self:center; }
+  .st-run { color:var(--green); } .st-exit { color:var(--dim); } .st-pause { color:var(--amber); }
+
+  /* 存储 */
+  #storage { flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin;
+             scrollbar-color:var(--scroll) transparent; }
+  #storage::-webkit-scrollbar { width:5px; }
+  #storage::-webkit-scrollbar-track { background:transparent; }
+  #storage::-webkit-scrollbar-thumb { background:var(--scroll); border-radius:99px; }
+  .sp-item { margin-bottom:12px; }
+  .sp-item:last-child { margin-bottom:0; }
+  .sp-head { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+  .sp-head .nm { font-weight:600; }
+  .sp-head .nm small { color:var(--dim); font-weight:400; margin-left:6px; font-size:11px; }
+  .sp-head .us { color:var(--dim); }
+  .sp-head .us b { color:var(--text); }
+  .sp-vol { font-size:11px; color:var(--dim); margin-bottom:6px; font-family:ui-monospace,monospace; }
+
+  /* 硬盘 */
+  .table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .table th { text-align:left; color:var(--dim); font-weight:500; padding:7px 8px;
+              border-bottom:1px solid var(--border); font-size:12px; letter-spacing:1px; }
+  .table td { padding:8px 8px; border-bottom:1px solid var(--divider); }
+  .table td:first-child { white-space:nowrap; }
+  .table td:nth-child(2) { max-width:200px; }
+  .table tr:last-child td { border-bottom:none; }
+  .temp-ok { color:var(--green); } .temp-warn { color:var(--amber); } .temp-hot { color:var(--red); }
+  .health { padding:2px 10px; border-radius:99px; font-size:12px; font-weight:600; }
+  .health.ok { background:var(--ok-bg); color:var(--green); }
+  .health.warn { background:var(--warn-bg); color:var(--amber); }
+  .health.fail { background:var(--fail-bg); color:var(--red); }
+  .health.na { background:var(--na-bg); color:var(--dim); }
+
+  footer { display:none; }
+
+  /* 悬浮按钮组: 主题切换 + 全屏 */
+  .fbtns { position:fixed; bottom:16px; right:16px; z-index:99; display:flex; flex-direction:column; gap:8px; }
+  .fbtns button {
+    width:36px; height:36px; border-radius:10px; cursor:pointer;
+    background:var(--btn-bg); border:1px solid var(--border);
+    color:var(--dim); font-size:16px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    transition:all .2s; backdrop-filter:blur(6px);
+  }
+  .fbtns button:hover { background:var(--btn-bg-hover); color:var(--text); }
+  .err { display:none; background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3);
+         color:var(--red); padding:8px 14px; border-radius:10px; margin-bottom:14px; font-size:13px; }
+  @media (max-width:1200px) {
+    .wrap { height:auto; }
+    .nine-grid { grid-template-columns:repeat(2,1fr); }
+    .sd-row { grid-template-columns:1fr; }
+  }
+  /* 中等高度窗口(笔记本常见, <860px): 压缩 CPU 卡与趋势图, 防止文字被挤出卡片 */
+  @media (max-height:860px) {
+    .gauge, .gauge svg { width:96px; height:96px; }
+    .gauge .val b { font-size:20px; }
+    .gauge .val span { font-size:10px; }
+    .cpu-body { gap:12px; }
+    .cpu-info .model { font-size:11px; margin-bottom:4px; }
+    .kv { padding:3px 0; font-size:12px; }
+    .temp-bar { margin-top:6px; }
+  }
+  /* 矮屏(浏览器占高后的窄视口)紧凑适配 */
+  @media (max-height:700px) {
+    body { padding:12px; }
+    .card { padding:12px 14px; }
+    .panel h3 { margin-bottom:8px; }
+    .gauge, .gauge svg { width:84px; height:84px; }
+    .gauge .val b { font-size:18px; }
+    .gauge .val span { font-size:10px; }
+    .cpu-body { gap:12px; }
+    .kv { padding:3px 0; }
+    .mem-total { font-size:20px; }
+    .bar { margin:8px 0 6px; }
+    .net-grid { grid-template-columns:repeat(4,1fr); gap:6px; margin-top:7px; }
+    .net-item { padding:4px 6px; text-align:center; }
+    .net-speed { font-size:17px; }
+    .ct-item { padding:3px 0; }
+    .ct-list { margin-top:8px; }
+    .table td { padding:6px 8px; }
+    .sp-item { margin-bottom:9px; }
+    .w-icon { font-size:36px; }
+    .w-temp { font-size:28px; }
+    .date-main { font-size:30px; }
+    .lunar-card { gap:5px; }
+    .date-sub { margin-top:6px; font-size:30px; letter-spacing:.5px; line-height:1.2; }
+    .lunar { margin-top:5px; font-size:16px; }
+    #alm-title { font-size:12px; }
+    .alm-row { font-size:13.5px; line-height:1.45; }
+    .alm-extra { font-size:11.5px; margin-top:2px; }
+    .dev-name { font-size:19px; }
+    .nine-grid, .sd-row { gap:12px; margin-bottom:12px; }
+  }
+
+  /* ---------- 手机端适配 (≤640px)：卡片纵向堆叠 + 页面滚动（放最后保证优先于矮屏块） ---------- */
+  @media (max-width:640px) {
+    html, body { overflow-x:hidden; max-width:100%; }   /* 横向固定：任何元素超宽被裁而非产生滚动条 */
+    body { padding:10px; }
+    .wrap { height:auto; display:block; }
+    .nine-grid { display:flex; grid-template-columns:none; flex-direction:column; gap:10px; margin-bottom:10px; }
+    .date-card, .lunar-card { min-width:0; width:100%; }
+    .date-main { font-size:26px; letter-spacing:.5px; }
+    .date-sub { font-size:26px; margin-top:6px; letter-spacing:.5px; line-height:1.2; }
+    .lunar { font-size:16px; margin-top:5px; }
+    .weather-card { min-width:0; width:100%; }
+    .device-card { min-width:0; width:100%; }
+    .w-icon { font-size:36px; }
+    .w-temp { font-size:28px; }
+    .w-days { gap:8px; margin-top:10px; }
+    .sd-row { grid-template-columns:1fr; gap:10px; margin-bottom:10px; flex:none; }
+    .panel { min-height:0; }
+    .panel .fill { overflow:visible; }   /* 表格不横滑 */
+    /* 硬盘表：横向固定自适应，列压缩+型号截断 */
+    .table { min-width:0; width:100%; table-layout:fixed; }
+    .table th, .table td { padding:6px 4px; font-size:11px; word-break:break-all; }
+    .table th:nth-child(2), .table td:nth-child(2) { max-width:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .table th:first-child, .table td:first-child { white-space:nowrap; font-size:10.5px; }
+    .sp-head { flex-wrap:wrap; gap:2px; }
+    .gauge, .gauge svg { width:88px; height:88px; }
+    .gauge .val b { font-size:20px; letter-spacing:-.5px; white-space:nowrap; }
+    .gauge .val span { font-size:10px; margin-top:2px; }
+    .cpu-body { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:0; }   /* 左右各半 */
+    .gauge { margin:0 auto; }   /* 圆环在左半居中 */
+    .cpu-info { width:100%; min-width:0; padding-left:12px; }
+    .cpu-info .model { font-size:10.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }   /* 型号单行截断，避免换行挤压 */
+    .cpu-info .kv { padding:4px 0; font-size:12px; }
+    .cpu-info .model { font-size:11px; }
+    .temp-bar { display:none; }     /* 手机端不显示温度色条 */
+    .net-speed { font-size:16px; }
+    .ct-item b { max-width:70%; }
+    .ct-list { max-height:240px; }
+    #storage { max-height:260px; }
+    #fs-btn { display:none; }   /* 手机端隐藏全屏按钮，保留主题切换 */
+  }
+
+  /* ---------- 手机横屏: 两版竖排(往下滚动), 每版填满整屏 + 全屏 ---------- */
+  @media (orientation:landscape) and (max-height:540px) {
+    html, body { overflow-x:hidden; }
+    body { overflow-y:auto; padding:8px; height:auto; }   /* 竖向滚动切换两个版 */
+    .wrap { height:auto; display:flex; flex-direction:column; gap:8px; }
+
+    /* 每个版占满一屏, 滚动切换 */
+    .nine-grid, .sd-row { margin:0; flex:none;
+      height:calc(100vh - 16px); min-height:0; overflow:hidden; }
+    .card { padding:10px 12px; }
+    .panel h3 { display:none; }                  /* 横屏去掉小圆点标题, 保持纯卡片 */
+    .nine-grid .card, .sd-row .panel { justify-content:center; min-height:0; min-width:0; overflow:hidden; }   /* 内容垂直居中 */
+    .panel .fill { overflow:auto; min-height:0; }
+    .ct-list { flex:1 1 auto; min-height:0; max-height:none; overflow:auto; }        /* 容器/快捷入口列表填满剩余空间, 内容多则内部滚动 */
+
+    /* 版一: 九宫格 3x3 田字格 (时间日历/天气/黄历 · NAS设备/快捷入口/容器 · CPU/内存/网络) */
+    .nine-grid { display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:8px; }
+    .nine-grid .card { min-height:0; }
+    .date-main { font-size:26px; letter-spacing:.5px; }
+    .date-sub { font-size:16px; margin-top:6px; letter-spacing:0; line-height:1.1; }
+    .lunar { font-size:13px; margin-top:6px; }
+    .lunar-card { gap:6px; }
+    #alm-title { font-size:11.5px; line-height:1.3; }
+    .alm-row { font-size:12.5px; line-height:1.4; }
+    .alm-extra { font-size:10.5px; margin-top:3px; }
+    .w-icon { font-size:34px; }
+    .w-temp { font-size:24px; }
+    .w-desc { font-size:11.5px; }
+    .w-days { gap:8px; margin-top:8px; }
+    .w-day { padding:5px 3px; font-size:11.5px; }
+    .w-day .d { font-size:11px; }
+    .w-day .t { font-size:11.5px; }
+    .w-day .r { font-size:11px; }
+    .dev-name { font-size:17px; gap:6px; }
+    .badge, .live { font-size:10px; padding:2px 7px; }
+    .node-id, .ip-row, .uptime { font-size:11px; margin-top:4px; }
+    .ct-item { padding:4px 0; }
+    .ct-ico { font-size:14px; }
+    .ct-name { font-size:12px; }
+    .ct-name small { font-size:10px; }
+    .ct-open { font-size:10.5px; padding:1px 6px; }
+
+    .gauge, .gauge svg { width:78px; height:78px; }
+    .gauge .val b { font-size:17px; }
+    .gauge .val span { font-size:9px; }
+    .cpu-body { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:6px; }
+    .gauge { margin:0 auto; }
+    .cpu-info { padding-left:6px; }
+    .cpu-info .model { font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cpu-info .kv { padding:2px 0; font-size:11px; }
+    .temp-bar { display:none; }
+    .mem-total { font-size:19px; }
+    .bar { margin:6px 0 4px; }
+    .mem-detail { font-size:11px; }
+    .net-speed { font-size:15px; }
+    .net-grid { grid-template-columns:1fr 1fr; gap:5px; margin-top:6px; }
+    .net-item { padding:3px 6px; }
+    .net-item .l { font-size:10px; }
+    .net-item .v { font-size:12.5px; }
+    .ct-count { font-size:19px; }
+    .ct-count small { font-size:11px; }
+
+    /* 版二: 存储空间 / 硬盘状态 = 两卡并排填满一屏 */
+    .sd-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .sd-row .panel { min-height:0; height:100%; }
+    .table { min-width:0; width:100%; table-layout:fixed; }
+    .table th, .table td { padding:6px 6px; font-size:12px; }
+    .table th:nth-child(2), .table td:nth-child(2) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .table th:first-child, .table td:first-child { font-size:11px; white-space:nowrap; }
+
+    /* 全屏按钮: 横屏启用 */
+    #fs-btn { display:inline-flex; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="err" id="err"></div>
+
+  <!-- 九宫格: 第1排 时间日历/天气/黄历 · 第2排 NAS设备/快捷入口/容器 · 第3排 CPU/内存/网络 -->
+  <div class="nine-grid">
+    <div class="card date-card">
+      <div class="date-main" id="date">—</div>
+      <div class="date-sub" id="weekday"></div>
+      <div class="lunar" id="lunar"></div>
+    </div>
+    <div class="card weather-card">
+      <div class="weather-head">
+        <div class="w-icon" id="w-icon">🌤️</div>
+        <div>
+          <div class="w-temp"><span id="w-temp">—</span>°C</div>
+          <div class="w-desc"><span id="w-desc">—</span> · 湿度 <span id="w-hum">—</span>%</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="w-city" id="w-city">—</div>
+          <div class="w-city" style="margin-top:2px">风力 <span id="w-wind">—</span> km/h</div>
+        </div>
+      </div>
+      <div class="w-days" id="w-days"></div>
+    </div>
+    <div class="card lunar-card" id="alm-box">
+      <div id="alm-title">—</div>
+      <div class="alm-row"><span class="alm-l good">宜</span><span class="alm-v" id="alm-good">—</span></div>
+      <div class="alm-row"><span class="alm-l bad">忌</span><span class="alm-v" id="alm-bad">—</span></div>
+      <div class="alm-extra" id="alm-extra">—</div>
+    </div>
+    <div class="card device-card">
+      <div class="dev-name"><span id="hostname">—</span><span class="badge on">● 在线</span><span class="live" id="live" title="实时推送中">● 实时</span></div>
+      <div class="node-id">NODE ID: <span id="nodeid">—</span></div>
+      <div class="ip-row"><span>公网 IP</span><b id="pubip">—</b></div>
+      <div class="ip-row"><span>内网 IP</span><b id="locip">—</b></div>
+      <div class="uptime">运行时间 <b id="uptime">—</b></div>
+    </div>
+    <div class="card panel">
+      <h3><span class="dot" style="background:var(--accent)"></span>快捷入口</h3>
+      <div class="ct-list" id="quick-list"></div>
+    </div>
+    <div class="card panel">
+      <h3><span class="dot"></span>容器</h3>
+      <div class="ct-count"><span id="ct-run">0</span><small> 运行中 / <span id="ct-total">0</span> 总数</small></div>
+      <div class="ct-list" id="ct-list"></div>
+    </div>
+    <div class="card panel">
+      <h3><span class="dot"></span>CPU</h3>
+      <div class="cpu-body">
+        <div class="gauge">
+          <svg width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="10"/>
+            <circle id="cpu-ring" cx="55" cy="55" r="46" fill="none" stroke="var(--accent)" stroke-width="10"
+                    stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="289"/>
+          </svg>
+          <div class="val"><b id="cpu-val">0%</b><span>使用率</span></div>
+        </div>
+        <div class="cpu-info">
+          <div class="model" id="cpu-model">—</div>
+          <div class="kv"><span>负载均值</span><b id="loadavg">—</b></div>
+          <div class="kv"><span>功耗</span><b id="cpu-power">—</b></div>
+          <div class="kv"><span>温度</span><b id="cpu-temp">—</b></div>
+        </div>
+      </div>
+      <div class="temp-bar"><i id="temp-bar"></i><span id="temp-bar-text">—</span></div>
+    </div>
+    <div class="card panel">
+      <h3><span class="dot"></span>内存</h3>
+      <div class="mem-total"><span id="mem-used">—</span><small> / <span id="mem-total">—</span></small></div>
+      <div class="bar"><i id="mem-bar" style="width:0%;background:linear-gradient(90deg,var(--accent),var(--green))"></i></div>
+      <div class="mem-detail"><span>已用 <b id="mem-pct" style="color:var(--text)">0%</b></span><span>可用 <b id="mem-free" style="color:var(--text)">—</b></span></div>
+    </div>
+    <div class="card panel">
+      <h3><span class="dot"></span>网络</h3>
+      <div class="net-speed"><span id="net-iface">—</span> <small>接口速率 <span id="net-speed">—</span></small></div>
+      <div class="net-grid">
+        <div class="net-item"><div class="l">⬇ 下载</div><div class="v down" id="net-rx">—</div></div>
+        <div class="net-item"><div class="l">⬆ 上传</div><div class="v up" id="net-tx">—</div></div>
+        <div class="net-item"><div class="l">📖 磁盘读</div><div class="v" id="disk-read">—</div></div>
+        <div class="net-item"><div class="l">📝 磁盘写</div><div class="v" id="disk-write">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sd-row">
+    <div class="card panel">
+      <h3><span class="dot"></span>存储空间</h3>
+      <div id="storage"></div>
+    </div>
+    <div class="card panel">
+      <h3><span class="dot"></span>硬盘状态</h3>
+      <div class="fill">
+      <table class="table">
+        <thead><tr><th>设备</th><th>型号</th><th>容量</th><th>类型</th><th>温度</th><th>健康</th></tr></thead>
+        <tbody id="disk-body"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="fbtns">
+  <button id="theme-btn" title="切换主题">☀️</button>
+  <button id="fs-btn" title="全屏显示 (F11)">⛶</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const W_ICONS = {
+  113:"☀️",116:"⛅",119:"☁️",122:"☁️",143:"🌫️",248:"🌫️",260:"🌫️",
+  176:"🌦️",263:"🌦️",266:"🌧️",293:"🌦️",296:"🌧️",299:"🌧️",302:"🌧️",
+  305:"🌧️",308:"🌧️",311:"🌧️",314:"🌧️",353:"🌦️",356:"🌧️",359:"🌧️",
+  362:"🌧️",365:"🌧️",179:"🌨️",182:"🌨️",185:"🌨️",227:"🌨️",230:"🌨️",
+  320:"🌨️",323:"🌨️",326:"🌨️",329:"🌨️",332:"🌨️",335:"🌨️",338:"🌨️",
+  368:"🌨️",371:"🌨️",374:"🌨️",377:"🌨️",200:"⛈️",386:"⛈️",389:"⛈️",
+  392:"⛈️",395:"⛈️"
+};
+const W_DESC = {
+  113:"晴",116:"晴间多云",119:"多云",122:"阴",143:"雾",248:"雾",260:"冻雾",
+  176:"零星阵雨",179:"零星阵雪",182:"雨夹雪",185:"冻雨",200:"雷阵雨",
+  227:"小雪",230:"中雪",263:"零星小雨",266:"小雨",281:"冻毛毛雨",284:"冻雨",
+  293:"零星小雨",296:"小雨",299:"小到中雨",302:"中雨",305:"中到大雨",308:"大雨",
+  311:"冻雨",314:"大到暴雨",317:"雨夹雪",320:"小到中雪",323:"小雪",326:"小到中雪",
+  329:"中雪",332:"中到大雪",335:"大雪",338:"暴雪",350:"冰粒",353:"零星小雨",
+  356:"中雨",359:"大雨",362:"雨夹雪",365:"雨夹雪",368:"小雪",371:"中雪",
+  374:"冰粒",377:"冰粒",386:"雷阵雨",389:"雷阵雨",392:"雷阵雪",395:"大雪"
+};
+const fmt = (b, unit="B") => {
+  if (b === null || b === undefined || isNaN(b)) return "—";
+  const u = ["B","KB","MB","GB","TB"];
+  let i = 0, v = b;
+  if (unit === "rate") { v = b; while (v >= 1024 && i < 4) { v /= 1024; i++; } return v.toFixed(v >= 100 ? 0 : 1) + " " + u[i] + "/s"; }
+  while (v >= 1024 && i < 4) { v /= 1024; i++; }
+  return v.toFixed(v >= 100 ? 0 : 1) + " " + u[i];
+};
+const tempClass = t => { if (t === null || t === undefined) return ""; return t > 55 ? "temp-hot" : t > 45 ? "temp-warn" : "temp-ok"; };
+
+// ── 日期/时间/运行时间: 本地每秒平滑刷新(不绑定 SSE 的 3 秒节奏, 避免"隔几秒跳一下") ──
+let serverTimeOffset = 0;   // 服务器时间 - 本地时间 偏移(用 SSE 帧校准)
+let upBaseSecs = 0;         // 上次 SSE 帧的 uptime 秒数
+let upRecvAt = 0;           // 收到 uptime 帧的本地时间戳
+function parseUptime(str){
+  const m = (str || "").match(/(\d+)天(\d+)时(\d+)分(\d+)秒/);
+  return m ? (+m[1]) * 86400 + (+m[2]) * 3600 + (+m[3]) * 60 + (+m[4]) : 0;
+}
+function fmtUptime(secs){
+  const d = Math.floor(secs / 86400); secs %= 86400;
+  const h = Math.floor(secs / 3600); secs %= 3600;
+  const m = Math.floor(secs / 60); const s = secs % 60;
+  return `${d}天${h}时${m}分${s}秒`;
+}
+function syncClock(d){   // SSE 每帧校准基准, 时钟本体由 tickClock 每秒走
+  if (d && d.time) {
+    const t = Date.parse(d.time.replace(" ", "T"));
+    if (!isNaN(t)) serverTimeOffset = t - Date.now();
+  }
+  if (d && d.uptime) { upBaseSecs = parseUptime(d.uptime); upRecvAt = Date.now(); }
+}
+function tickClock(){
+  const now = new Date(Date.now() + serverTimeOffset);
+  const p = n => String(n).padStart(2, "0");
+  const Y = now.getFullYear(), M = p(now.getMonth() + 1), D = p(now.getDate());
+  const h = p(now.getHours()), mi = p(now.getMinutes()), se = p(now.getSeconds());
+  $("date").textContent = `${Y}-${M}-${D}`;
+  $("weekday").textContent = "星期" + "日一二三四五六"[now.getDay()] + " · " + `${h}:${mi}:${se}`;
+  const up = upBaseSecs + Math.max(0, Math.floor((Date.now() - upRecvAt) / 1000));
+  $("uptime").textContent = fmtUptime(up);
+}
+
+function render(d) {
+  // 时间/农历/黄历
+  syncClock(d);   // 校准本地时钟基准; 日期·秒·运行时间由 tickClock 每秒平滑刷新
+  $("lunar").textContent = "农历 " + d.lunar;
+  // 黄历宜忌
+  if (d.almanac && d.almanac.ok) {
+    const a = d.almanac;
+    const gz = [a.gz_year,a.gz_month,a.gz_day].filter(Boolean).join("·");
+    $("alm-title").textContent = (gz||"") + (a.zodiac?" "+a.zodiac+"年":"") + " | " + (a.day_officer||"") + (a.day_god?"·"+a.day_god:"") + (a.level?" | "+a.level:"");
+    $("alm-good").textContent = (a.good||[]).join(" · ") || "—";
+    $("alm-bad").textContent = (a.bad||[]).join(" · ") || "—";
+    $("alm-extra").textContent = (a.clash||"") + (a.solar_term?" | "+a.solar_term:"") + (a.next_term?" | 下个节气:"+a.next_term:"");
+  }
+
+  // 设备
+  $("hostname").textContent = d.hostname;
+  $("nodeid").textContent = d.node_id;
+  $("pubip").textContent = d.public_ip;
+  $("locip").textContent = d.local_ip;
+
+  // 天气
+  const w = d.weather;
+  if (w && w.ok) {
+    $("w-icon").textContent = W_ICONS[w.code] || "🌤️";
+    $("w-temp").textContent = w.temp;
+    $("w-desc").textContent = W_DESC[w.code] || w.desc;
+    $("w-hum").textContent = w.humidity;
+    $("w-wind").textContent = w.wind;
+    $("w-city").textContent = "📍 " + w.city;
+    $("w-days").innerHTML = w.days.map((day, i) => {
+      const label = i === 0 ? "今天" : i === 1 ? "明天" : "后天";
+      const md = day.date.split("-");
+      return `<div class="w-day"><div class="d">${label} ${md[1]}/${md[2]}</div>
+        <div>${W_ICONS[day.code] || "🌤️"} ${W_DESC[day.code] || day.desc}</div>
+        <div class="r">${day.tmin}°~${day.tmax}°</div></div>`;
+    }).join("");
+  } else {
+    $("w-city").textContent = w && w.error ? "天气获取失败" : "—";
+    $("w-days").innerHTML = "";
+  }
+
+  // CPU
+  const cu = d.cpu.usage;
+  const ring = $("cpu-ring");
+  const off = 289 * (1 - cu / 100);
+  ring.style.strokeDashoffset = off;
+  ring.style.stroke = cu > 85 ? "var(--red)" : cu > 65 ? "var(--amber)" : "var(--accent)";
+  $("cpu-val").textContent = cu + "%";
+  $("cpu-model").textContent = d.cpu.model;
+  $("loadavg").textContent = d.cpu.loadavg.map(x => x.toFixed(2)).join(" / ");
+  $("cpu-temp").textContent = d.cpu.temp !== null && d.cpu.temp !== undefined ? d.cpu.temp + " °C" : "—";
+  $("cpu-power").textContent = d.cpu.power_w !== null && d.cpu.power_w !== undefined ? d.cpu.power_w + " W" : "—";
+  // 温度颜色条: <=50 浅蓝 / 51-64 深蓝 / >=65 红; 宽度映射 30~95°C 动态变化;
+  // 数字为黄色, 固定在色条前端(最左端, 色条内)
+  const tb = $("temp-bar"), tbTxt = $("temp-bar-text");
+  if (tb) {
+    const t = d.cpu.temp;
+    if (t === null || t === undefined) {
+      tb.style.width = "0%";
+      tb.style.background = "var(--track)";
+      if (tbTxt) { tbTxt.textContent = "—"; tbTxt.style.left = "2px"; tbTxt.style.right = ""; }
+    } else {
+      const w = Math.max(8, Math.min(100, (t - 30) / 65 * 100));
+      tb.style.width = w + "%";
+      tb.style.background = t <= 50 ? "#7dd3fc" : t <= 64 ? "#2563eb" : "#ef4444";
+      if (tbTxt) {
+        tbTxt.textContent = t + "°C";
+        // 数字右缘贴住填充条末端: 温度升色条变长数字右移, 降则左移, 始终站在彩色条内
+        const barW = tb.parentElement.clientWidth || 300;   // 整条宽度(非填充条)
+        const spanW = tbTxt.offsetWidth || 34;
+        tbTxt.style.left = Math.max(2, Math.min(barW - spanW - 2, barW * w / 100 - spanW)) + "px";
+        tbTxt.style.right = "";
+      }
+    }
+  }
+
+  // 内存
+  $("mem-used").textContent = fmt(d.mem.used);
+  $("mem-total").textContent = fmt(d.mem.total);
+  $("mem-free").textContent = fmt(d.mem.free);
+  $("mem-pct").textContent = d.mem.percent + "%";
+  $("mem-bar").style.width = Math.min(d.mem.percent, 100) + "%";
+
+  // 网络
+  $("net-iface").textContent = d.net.iface;
+  $("net-speed").textContent = d.net.speed_label;
+  $("net-rx").textContent = fmt(d.net.rx, "rate");
+  $("net-tx").textContent = fmt(d.net.tx, "rate");
+  $("disk-read").textContent = fmt(d.diskio.read, "rate");
+  $("disk-write").textContent = fmt(d.diskio.write, "rate");
+
+  // 容器
+  const c = d.containers;
+  // 固定服务入口（非 Docker 容器，宿主机常驻后台）
+  const EXTRA_SERVICES = [
+    { icon:"🐳", name:"Docker 管理工作台", url:"http://192.168.110.249:8092/docker_panel.html", public:"https://docker.sxtkk.top/" },
+    { icon:"🛠️", name:"管理后台", url:"http://192.168.110.249:5211/admin?page=dashboard" },
+    { icon:"💰", name:"Token 用量看板", url:"http://192.168.110.249:8904/token", public:"https://nas.sxtkk.top/token" },
+  ];
+  const extraHtml = EXTRA_SERVICES.map(s => `
+    <div class="ct-item" title="${s.url}">
+      <div class="ct-top"><span class="ct-ico">${s.icon}</span><span class="ct-name">${s.name}<small class="st-run">运行中</small></span></div>
+      <div class="ct-links">
+        <a class="ct-open" href="${s.url}" target="_blank" rel="noopener">📱 内网打开</a>
+        ${s.public ? `<a class="ct-open" href="${s.public}" target="_blank" rel="noopener">🌐 公网打开</a>` : `<span class="ct-nopub">🌐 公网未配置</span>`}
+        <a class="ct-open" href="${s.url}" target="_blank" rel="noopener">📱 手机版</a>
+      </div>
+    </div>`).join("");
+  if (c.ok && c.list.length) {
+    $("ct-run").textContent = c.running;
+    $("ct-total").textContent = c.total === null ? "?" : c.total;
+    const cls = { running:"st-run", exited:"st-exit", paused:"st-pause", created:"st-exit", restarting:"st-pause" };
+    const stName = { running:"运行中", exited:"已停止", paused:"已暂停", created:"已创建", restarting:"重启中" };
+    const SERVICE_MAP = {
+      "jellyfin":    { icon:"🎬", name:"Jellyfin 影音",      public:null },
+      "dsh-web":     { icon:"🤖", name:"NAS 手机版 DeepSeek", public:"dsh.sxtkk.top" },
+      "filebrowser": { icon:"📁", name:"File Browser 文件",   public:null },
+      "uptime-kuma": { icon:"📊", name:"Uptime Kuma 监控",    public:null },
+      "xunlei":      { icon:"⚡", name:"迅雷下载",            public:null },
+    };
+    const proto = location.protocol;
+    const host = location.hostname;
+    $("ct-list").innerHTML = c.list.map(x => {
+      const m = SERVICE_MAP[x.name] || { icon:"🐳", name:x.name, public:null };
+      const links = (x.ports && x.ports.length) ? x.ports.map(p => {
+        const local = `${proto}//${host}:${p}`;
+        const pub = m.public ? `https://${m.public}` : null;
+        return `<div class="ct-links">`
+          + `<a class="ct-open" href="${local}" target="_blank" rel="noopener">📱 手机版</a>`
+          + (pub ? `<a class="ct-open" href="${pub}" target="_blank" rel="noopener">🌐 公网</a>`
+                  : `<span class="ct-nopub">🌐 公网未配置</span>`)
+          + `</div>`;
+      }).join("") : "";
+      const title = x.cmd || x.id || "";
+      return `<div class="ct-item" title="${title}">`
+        + `<div class="ct-top"><span class="ct-ico">${m.icon}</span>`
+        + `<span class="ct-name">${m.name}<small class="${cls[x.state]||"st-exit"}">${stName[x.state]||x.state}</small></span></div>`
+        + links + `</div>`;
+    }).join("");
+  } else if (c.ok) {
+    $("ct-run").textContent = c.running;
+    $("ct-total").textContent = c.total === null ? "?" : c.total;
+    $("ct-list").innerHTML = `<div class="ct-item"><b style="color:var(--dim)">暂无容器</b></div>`;
+  } else {
+    $("ct-run").textContent = "—";
+    $("ct-total").textContent = "—";
+    $("ct-list").innerHTML = `<div class="ct-item"><b style="color:var(--dim)">Docker 不可用</b></div>`;
+  }
+  // 固定服务快捷入口（宿主机常驻，始终可见，不依赖 Docker 状态）
+  $("quick-list").innerHTML = extraHtml;
+
+  // 存储空间(按硬盘) — SSD 与活跃盘 df 取真实用量; 休眠盘显示缓存用量+总容量, 不唤醒
+  $("storage").innerHTML = d.storage.map(s => {
+    const isSSD = s.ssd;
+    const power = s.power || (isSSD ? "ssd" : "unknown");
+    const hasUsage = (s.used != null && s.percent != null);
+    // 电源徽标
+    let pwrBadge;
+    if (isSSD)            pwrBadge = '<span style="color:var(--accent)">⚡ 常驻</span>';
+    else if (power === "active")  pwrBadge = '<span style="color:var(--amber)">⚡ 活跃</span>';
+    else if (power === "standby") pwrBadge = '<span style="color:var(--green)">🌙 休眠</span>';
+    else pwrBadge = '<span style="color:var(--dim)">❓ 状态未知</span>';
+    // 用量文本(总容量始终显示)
+    const usageTxt = hasUsage
+      ? `已用 <b>${fmt(s.used)}</b> / 共 ${fmt(s.size)} · ${s.percent}%`
+      : `共 ${fmt(s.size)}` + (power === "standby" ? " · 用量缓存" : " · 用量待获取");
+    // 电量条
+    const barW = hasUsage ? Math.min(s.percent, 100) : 0;
+    const barBg = hasUsage
+      ? (s.percent > 90 ? "linear-gradient(90deg,var(--red),var(--amber))"
+        : s.percent > 75 ? "linear-gradient(90deg,var(--amber),var(--accent))"
+        : "linear-gradient(90deg,var(--accent),var(--green))")
+      : "var(--track)";
+    const volTxt = (s.volumes && s.volumes !== "未挂载")
+      ? "📂 " + s.volumes
+      : "未挂载";
+    return `
+    <div class="sp-item">
+      <div class="sp-head">
+        <span class="nm">💽 ${s.name}<small>${s.type}${s.raid ? " · " + s.raid : ""}</small></span>
+        <span class="us">${pwrBadge} <span style="margin-left:8px">${usageTxt}</span></span>
+      </div>
+      <div class="sp-vol">${volTxt}</div>
+      <div class="bar"><i style="width:${barW}%;background:${barBg}"></i></div>
+    </div>`;
+  }).join("") || '<div style="color:var(--dim);font-size:13px">未检测到硬盘</div>';
+
+  // 硬盘
+  $("disk-body").innerHTML = d.disks.map(x => {
+    const t = x.temp;
+    const tempHtml = t !== null && t !== undefined ? `<span class="${tempClass(t)}">${t} °C</span>` : '<span style="color:var(--dim)">—</span>';
+    const h = x.health;
+    const healthHtml = h === "OK" ? '<span class="health ok">正常</span>'
+      : h === "WARN" ? `<span class="health warn" title="${x.smart || ""}">⚠ 警告</span>`
+      : h === "FAILED" ? '<span class="health fail">异常!</span>'
+      : x.smart ? `<span class="health na">${x.smart}</span>`
+      : '<span class="health na">—</span>';
+    return `<tr><td style="font-family:ui-monospace,monospace">${x.name}</td><td title="${x.model}">${x.model.length>20?x.model.slice(0,20)+"…":x.model}</td><td>${x.size}</td><td>${x.type}</td><td>${tempHtml}</td><td>${healthHtml}</td></tr>`;
+  }).join("");
+
+}
+
+async function refresh() {
+  try {
+    const r = await fetch("/api/metrics");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    $("err").style.display = "none";
+    render(d);
+  } catch (e) {
+    $("err").style.display = "block";
+    $("err").textContent = "⚠️ 数据获取失败: " + e.message + "（正在重试…）";
+  }
+}
+// ── 实时刷新: SSE 服务端推送(3秒/次), 断线时自动降级为 5 秒轮询; 页面切后台时暂停省功耗 ──
+let esDown = true;   // SSE 是否不可用
+let es = null;
+let pollTimer = null;
+function startSSE() {
+  if (!window.EventSource) { esDown = true; return; }
+  if (es) { try { es.close(); } catch (e) {} es = null; }
+  es = new EventSource("/api/stream");
+  es.onmessage = (ev) => {
+    try { render(JSON.parse(ev.data)); } catch (e) { /* 单帧异常忽略 */ }
+  };
+  es.onopen = () => { esDown = false; $("live").style.display = "inline-block"; };
+  es.onerror = () => { esDown = true; $("live").style.display = "none"; };  // 浏览器会自动重连
+}
+function startPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (esDown) refresh(); }, 5000);  // SSE 断开时才轮询兜底
+}
+function stopLive() {   // 页面隐藏时暂停一切实时刷新
+  if (es) { try { es.close(); } catch (e) {} es = null; }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+startSSE();
+refresh();                      // 首帧立即加载
+setInterval(tickClock, 1000); tickClock();   // 日期/运行时间每秒平滑走, 不随 SSE 3秒节奏跳
+startPoll();
+// 切后台暂停、切回立即恢复 —— 降低无人在看时的 CPU/功耗
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopLive();
+  else { refresh(); startSSE(); startPoll(); }
+});
+
+// 主题切换(浅色/深色), 记住选择
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+$("theme-btn").textContent = document.documentElement.dataset.theme === "light" ? "🌙" : "☀️";
+$("theme-btn").addEventListener("click", () => {
+  const cur = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  document.documentElement.dataset.theme = cur;
+  localStorage.setItem("theme", cur);
+  $("theme-btn").textContent = cur === "light" ? "🌙" : "☀️";
+});
+
+// 全屏切换: 隐藏浏览器标签栏/地址栏, 看板独占屏幕
+$("fs-btn").addEventListener("click", () => {
+  const d = document;
+  if (d.fullscreenElement || d.webkitFullscreenElement) {
+    (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+  } else {
+    (d.documentElement.requestFullscreen || d.documentElement.webkitRequestFullscreen).call(d.documentElement);
+  }
+});
+document.addEventListener("fullscreenchange", () => {
+  $("fs-btn").textContent = document.fullscreenElement ? "⤢" : "⛶";
+});
+</script>
+</body>
+</html>

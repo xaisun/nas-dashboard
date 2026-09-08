@@ -1,0 +1,30 @@
+services:
+  nas-dashboard:
+    build: .
+    container_name: nas-dashboard
+    restart: unless-stopped
+    # 需要访问 /dev 读取硬盘 SMART 温度/健康信息; 如不想用特权模式可去掉,
+    # 硬盘温度会显示 "—"（其余功能正常）
+    privileged: true
+    # 使用宿主网络: 直接监控真实网卡和本机端口
+    network_mode: host
+    environment:
+      TZ: Asia/Shanghai
+      PORT: "8904"
+      NODE_ID: "NODE-001"
+      # 天气城市, 留空自动按公网 IP 识别; 也可填如: 上海 / Beijing
+      WEATHER_CITY: ""
+    volumes:
+      # 整个项目目录挂载到 /app: 目录级挂载才能看到文件的原子替换(rename)
+      # (单文件挂载会钉住旧 inode, 导致热更新失效 —— 已踩坑)
+      - /vol1/@apphome/trim.openclaw/data/workspace/nas-dashboard:/app:ro
+      # 读取 CPU 温度 / 网卡速率
+      - /sys:/sys:ro
+      - /etc/localtime:/etc/localtime:ro
+      # 读取 Docker 容器状态
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8904/api/metrics',timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

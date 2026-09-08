@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.pyc
+
+# 运行时生成 / 本地调试产物
+*.log
+*.out
+.env
+.env.local
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

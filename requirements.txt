@@ -1,0 +1,4 @@
+flask>=3.0
+docker>=7.0
+cnlunar>=0.2
+zstandard>=0.22
