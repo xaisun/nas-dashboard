@@ -15,7 +15,7 @@ import urllib.request
 import urllib.parse
 from datetime import datetime, date
 
-from flask import Flask, jsonify, send_from_directory, request, Response
+from flask import Flask, jsonify, make_response, send_from_directory, request, Response
 
 # ── cnlunar 黄历 ──
 try:
@@ -910,11 +910,44 @@ _LOCAL_CACHE_LOCK = threading.Lock()
 _LOCAL_CACHE_FILE = os.path.join(BASE_DIR, ".token_local_cache.json")
 
 
+_TOKEN_COOKIE = "token_hub_key"
+
+
+def _key_ok(k):
+    return bool(_HUB_KEY) and k == _HUB_KEY
+
+
+def _req_key():
+    """密钥来源优先级：?k= → x-hub-key 头 → 登录后写入的 cookie。"""
+    return (request.args.get("k")
+            or request.headers.get("x-hub-key")
+            or request.cookies.get(_TOKEN_COOKIE) or "")
+
+
 def _hub_ok():
     """汇聚密钥校验：未配置 TOKEN_HUB_KEY 时一律拒绝（Token Hub 视为关闭）。"""
-    if not _HUB_KEY:
-        return False
-    return (request.args.get("k") or request.headers.get("x-hub-key")) == _HUB_KEY
+    return _key_ok(_req_key())
+
+
+_HUB_LOGIN_HTML = '''<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Token 看板 · 需要口令</title></head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1020;color:#e6ecff;font:15px/1.6 system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif">
+<form method="get" style="display:flex;flex-direction:column;gap:12px;min-width:270px;padding:26px;border:1px solid #223055;border-radius:14px;background:#111a33">
+  <div style="font-size:18px;font-weight:600">DSH Token 看板</div>
+  <div style="color:#8f9bbd;font-size:13px">请输入访问口令</div>
+  <input name="k" type="password" autofocus autocomplete="current-password" placeholder="访问口令"
+         style="padding:10px 12px;border-radius:9px;border:1px solid #2a3557;background:#0c1428;color:inherit;font-size:14px;outline:none">
+  <button type="submit"
+          style="padding:10px;border:0;border-radius:9px;background:#3b6cff;color:#fff;font-size:14px;cursor:pointer">进入</button>
+  <!--TIP-->
+</form></body></html>'''
+
+
+def _login_page(wrong=False):
+    tip = ('<div style="color:#ff8a8a;font-size:12.5px">口令不对，再试一次</div>' if wrong else "")
+    return Response(_HUB_LOGIN_HTML.replace("<!--TIP-->", tip), 401, mimetype="text/html")
 
 
 def _load_local_cache():
@@ -1110,7 +1143,14 @@ def _cors(resp):
 
 @app.route("/token")
 def token_dashboard():
-    return send_from_directory(BASE_DIR, "token-dashboard.html")
+    """Token 看板：配了 TOKEN_HUB_KEY 就要求先过口令，口令正确即种 cookie（半年）。"""
+    if _HUB_KEY and not _key_ok(request.args.get("k") or request.cookies.get(_TOKEN_COOKIE) or ""):
+        return _login_page(wrong=bool(request.args.get("k")))
+    resp = make_response(send_from_directory(BASE_DIR, "token-dashboard.html"))
+    if request.args.get("k") == _HUB_KEY:
+        resp.set_cookie(_TOKEN_COOKIE, _HUB_KEY, max_age=180 * 24 * 3600,
+                        httponly=True, samesite="Lax")
+    return resp
 
 
 @app.route("/api/token/aggregate", methods=["GET", "OPTIONS"])
