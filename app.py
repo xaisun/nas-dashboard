@@ -910,6 +910,13 @@ _LOCAL_CACHE_LOCK = threading.Lock()
 _LOCAL_CACHE_FILE = os.path.join(BASE_DIR, ".token_local_cache.json")
 
 
+def _hub_ok():
+    """汇聚密钥校验：未配置 TOKEN_HUB_KEY 时一律拒绝（Token Hub 视为关闭）。"""
+    if not _HUB_KEY:
+        return False
+    return (request.args.get("k") or request.headers.get("x-hub-key")) == _HUB_KEY
+
+
 def _load_local_cache():
     try:
         with open(_LOCAL_CACHE_FILE, "r", encoding="utf-8") as f:
@@ -1095,7 +1102,8 @@ def _norm_item(it, model_map=None):
 def _cors(resp):
     resp.headers["Access-Control-Allow-Origin"] = "*"
     resp.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "content-type"
+    resp.headers["Access-Control-Allow-Headers"] = "content-type, x-hub-key"
+    resp.headers["Access-Control-Max-Age"] = "600"
     resp.headers["Access-Control-Allow-Private-Network"] = "true"
     return resp
 
@@ -1108,7 +1116,9 @@ def token_dashboard():
 @app.route("/api/token/aggregate", methods=["GET", "OPTIONS"])
 def api_token_aggregate():
     if request.method == "OPTIONS":
-        return _cors(Response("", 204))
+        return _cors(Response("", 204))          # 预检不带密钥，必须放行
+    if not _hub_ok():
+        return _cors(Response(json.dumps({"ok": False, "error": "unauthorized"}, ensure_ascii=False), mimetype="application/json")), 403
     nas_items = _dsh_sessionlist(_DSH_NAS_URL, _DSH_NAS_AUTH)
     nas_model_map = _nas_model_map()      # 经 session.models RPC 补全 NAS 会话的 model
     instances = []
@@ -1133,8 +1143,7 @@ def api_token_aggregate():
 def api_token_push():
     if request.method == "OPTIONS":
         return _cors(Response("", 204))
-    _k = request.args.get("k") or request.headers.get("x-hub-key")
-    if not _HUB_KEY or _k != _HUB_KEY:      # 未配置密钥时一律拒绝写入
+    if not _hub_ok():                            # 未配置密钥时一律拒绝写入
         return _cors(Response(json.dumps({"ok": False, "error": "unauthorized"}, ensure_ascii=False), mimetype="application/json")), 403
     try:
         body = request.get_json(force=True, silent=True) or {}

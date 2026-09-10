@@ -35,7 +35,7 @@ sudo docker compose up -d --build
 | `PORT` | `8904` | 监听端口 |
 | `NODE_ID` | `NODE-001` | 看板上显示的节点 ID |
 | `WEATHER_CITY` | 空(自动) | 天气：留空按公网 IP 自动识别；填 `lat,lon`(如 `22.27,113.57`)强制坐标；填城市名仅覆盖显示名。数据源 Open-Meteo（免费/无需 key） |
-| `TOKEN_HUB_KEY` | 空 | Token 汇聚密钥（见下节）。**留空 = 关闭 `/api/token/push` 写入接口** |
+| `TOKEN_HUB_KEY` | 空 | Token 汇聚密钥（见下节）。**留空 = 关闭 Token Hub 的读写接口**（`/api/token/*` 一律 403） |
 
 修改后 `sudo docker compose up -d` 重建即可。
 
@@ -142,7 +142,7 @@ host_mounts.json updated: 6 disks; active->df: 2
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `TOKEN_HUB_KEY` | 空 | 汇聚密钥。**留空则 `/api/token/push` 一律 403**，即关闭远程写入 |
+| `TOKEN_HUB_KEY` | 空 | 汇聚密钥。**读写接口都校验它**（`?k=` 或 `x-hub-key` 头）；留空则整个 Token Hub 关闭（一律 403） |
 | `DSH_SESSION_URL` | `http://127.0.0.1:8080/api/session.list` | 本机 DSH 的会话列表 RPC 地址 |
 | `DSH_API_BASE` | `http://127.0.0.1:8080/api/` | 本机 DSH 的 RPC 前缀（用于 `session.models`） |
 | `DSH_BASIC_AUTH` | 空 | 访问 DSH 需要的 `Authorization` 头，形如 `Basic <base64(user:pass)>`；留空则不带鉴权 |
@@ -150,9 +150,10 @@ host_mounts.json updated: 6 disks; active->df: 2
 页面侧：`/token?k=<密钥>` 指定汇聚密钥，`?hub=https://hub.example:8904` 指定跨机汇聚地址；
 两者也会从 `localStorage.hubKey` 读取。不带参数时按**同源**请求，即本机自采。
 
-> ⚠️ **注意暴露面**：`/api/token/aggregate`（读接口）不校验密钥，会返回会话标题与 token 数。
-> 如果这个看板挂在公网上，请自行加上鉴权（如反代 Basic Auth / Cloudflare Access），
-> 或不要把 `/token` 暴露到外网。
+> ⚠️ **密钥 ≠ 真保密**：`/token` 页面本身是公开可访问的，密钥留在页面里等于公开。
+> 加这个密钥只是挡住直接命中 `/api/token/aggregate` 的爬虫和顺手访问；
+> 要真挡住人，得在反代上加一层真正的登录（Basic Auth / Cloudflare Access），
+> 或干脆不要把 `/token` 暴露到外网。
 
 ## 不带 Docker 直接运行（调试用）
 
