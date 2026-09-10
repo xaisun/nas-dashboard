@@ -544,6 +544,17 @@ def storage():
     return result
 
 # ---------------------------------------------------------------- 容器
+def _host_ports(c):
+    """提取容器映射到宿主的端口列表(降序), 供前端生成可点击链接"""
+    out = []
+    for bindings in (getattr(c, "ports", None) or {}).values():
+        if isinstance(bindings, list):
+            for b in bindings:
+                if isinstance(b, dict) and b.get("HostPort"):
+                    try: out.append(int(b["HostPort"]))
+                    except Exception: pass
+    return sorted(set(out), reverse=True)
+
 def containers():
     """优先 Docker API; 无权限时回退 cgroup 进程级统计(无需root)"""
     try:
@@ -556,7 +567,7 @@ def containers():
             "source": "docker",
             "running": len(running),
             "total": len(all_c),
-            "list": [{"name": c.name, "state": c.status, "cmd": ""} for c in all_c],
+            "list": [{"name": c.name, "state": c.status, "cmd": "", "ports": _host_ports(c)} for c in all_c],
         }
     except Exception as e:
         return _containers_from_cgroup(str(e))
@@ -883,6 +894,261 @@ def api_stream():
         "X-Accel-Buffering": "no",
         "Connection": "keep-alive",
     })
+
+
+# ─────────────────────────────────────────────────────────────
+# DSH Token 用量聚合 Hub（汇聚 本机 / NAS / 公网 的 token 数据）
+# ─────────────────────────────────────────────────────────────
+import base64 as _b64
+# 凭据一律从环境变量读取，仓库内不保存任何密钥 / 账号
+_HUB_KEY = os.environ.get("TOKEN_HUB_KEY", "")                  # 汇聚写入密钥；留空则关闭 /api/token/push
+_DSH_NAS_URL = os.environ.get("DSH_SESSION_URL", "http://127.0.0.1:8080/api/session.list")
+_DSH_NAS_BASE = os.environ.get("DSH_API_BASE", "http://127.0.0.1:8080/api/")
+_DSH_NAS_AUTH = os.environ.get("DSH_BASIC_AUTH", "")            # 形如 "Basic xxxx"；留空则不带鉴权头
+_LOCAL_CACHE = {"items": [], "client": "\u672c\u673a \u00b7 \u684c\u9762/Web", "updatedAt": 0}
+_LOCAL_CACHE_LOCK = threading.Lock()
+_LOCAL_CACHE_FILE = os.path.join(BASE_DIR, ".token_local_cache.json")
+
+
+def _load_local_cache():
+    try:
+        with open(_LOCAL_CACHE_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        _LOCAL_CACHE["items"] = d.get("items", [])
+        _LOCAL_CACHE["client"] = d.get("client", "\u672c\u673a \u00b7 \u684c\u9762/Web")
+        _LOCAL_CACHE["updatedAt"] = d.get("updatedAt", 0)
+    except Exception:
+        pass
+
+
+def _save_local_cache():
+    try:
+        with open(_LOCAL_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"items": _LOCAL_CACHE["items"], "client": _LOCAL_CACHE["client"],
+                       "updatedAt": _LOCAL_CACHE["updatedAt"]}, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+_load_local_cache()
+
+
+def _dsh_sessionlist(url, auth=None, timeout=6):
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps({"type": "client-request", "rpcId": str(int(time.time() * 1000)),
+                             "method": "session.list", "payload": {}}).encode(),
+            headers={"content-type": "application/json"})
+        if auth:
+            req.add_header("authorization", auth)
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read().decode())
+        if data and data.get("result", {}).get("ok"):
+            return data["result"]["value"].get("items", [])
+    except Exception as e:
+        print("[token-hub] fetch failed:", url, e)
+    return None
+
+
+def _dsh_session_model(sid, auth):
+    """调 DSH 的 session.models RPC，取该会话当前使用的模型(current.model)。
+    覆盖所有会话(含未落盘转录)，比扫 zstd 转录可靠。失败返回 None。"""
+    if not sid:
+        return None
+    try:
+        req = urllib.request.Request(
+            _DSH_NAS_BASE + "session.models",
+            data=json.dumps({"type": "client-request", "rpcId": str(int(time.time() * 1000)),
+                             "method": "session.models", "payload": {"sessionId": sid}}).encode(),
+            headers={"content-type": "application/json"})
+        if auth:
+            req.add_header("authorization", auth)
+        with urllib.request.urlopen(req, timeout=5) as r:
+            d = json.loads(r.read().decode())
+        cur = (d.get("result", {}).get("value", {}) or {}).get("current") or {}
+        return cur.get("model")
+    except Exception:
+        return None
+
+
+_NAS_MODEL_TTL = 120
+def _nas_model_map():
+    """缓存版：遍历 NAS 本机会话，逐个调 session.models 拿 sessionId->model。
+    120s 刷新一次，避免每次聚合都打 19 次 RPC。"""
+    now = time.time()
+    with _cache_lock:
+        c = _cache.get("nas_model_map")
+        if c and now - c[0] < _NAS_MODEL_TTL:
+            return c[1]
+    out = {}
+    try:
+        items = _dsh_sessionlist(_DSH_NAS_URL, _DSH_NAS_AUTH) or []
+        for it in items:
+            sid = it.get("sessionId")
+            if not sid:
+                continue
+            m = _dsh_session_model(sid, _DSH_NAS_AUTH)
+            if m:
+                out[sid] = m
+        # 兜底：若本进程能读到 DSH 转录(同机同用户)，合并 zstd 扫描结果
+        try:
+            out.update(_dsh_model_map())
+        except Exception:
+            pass
+    except Exception:
+        pass
+    with _cache_lock:
+        _cache["nas_model_map"] = (now, out)
+    return out
+
+
+def _dsh_model_map():
+    """扫描本机 DSH 会话转录，提取 sessionId->model。
+    仅在 hub 进程能读到 DSH 会话文件时生效(如 NAS 与 DSH 同机同用户/同挂载)。
+    DSH 不通过 session.list API 暴露 model，只能从 zstd 转录里提取；
+    会话存储位置因版本而异，故扫描多个候选根。读不到则返回 {}，
+    由 local_pusher 在客户端侧补全本地实例的 model。"""
+    now = time.time()
+    with _cache_lock:
+        c = _cache.get("dsh_model_map")
+        if c and now - c[0] < 60:
+            return c[1]
+    out = {}
+    try:
+        import zstandard as _zstd
+    except Exception:
+        return out
+    home = os.path.expanduser("~")
+    roots = [
+        os.path.join(home, ".dsh", "sessions"),
+        os.path.join(home, "AppData", "Roaming", "deepseek-harness-desktop"),
+        os.path.join(home, "AppData", "Local", "DeepSeekHarness"),
+    ]
+    try:
+        _ws = json.load(open(os.path.join(home, ".dsh", "storages", "workspace.json"), encoding="utf-8"))
+        for _w in _ws.get("tables", {}).get("workspaces", {}).values():
+            _p = _w.get("path")
+            if _p and os.path.isdir(_p):
+                roots.append(_p)
+                roots.append(os.path.join(_p, "sessions"))
+    except Exception:
+        pass
+    seen = set()
+    dctx = _zstd.ZstdDecompressor()
+    try:
+        for root in roots:
+            if not root or root in seen or not os.path.isdir(root):
+                continue
+            seen.add(root)
+            for dp, _, fns in os.walk(root):
+                for fn in fns:
+                    if not fn.endswith(".jsonl.zstd"):
+                        continue
+                    sid = os.path.basename(dp)          # 会话目录名即 sessionId
+                    if sid in out:
+                        continue
+                    try:
+                        with open(os.path.join(dp, fn), "rb") as f:
+                            txt = dctx.stream_reader(f).read().decode("utf-8", "replace")
+                        m = re.search(r'"model"\s*:\s*"([^"]+)"', txt[:500000])
+                        if m:
+                            out[sid] = m.group(1)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+    with _cache_lock:
+        _cache["dsh_model_map"] = (now, out)
+    return out
+
+
+def _norm_item(it, model_map=None):
+    v = (it.get("projections") or {}).get("values") or {}
+    tu = v.get("tokenUsage") or {}
+    model_map = model_map or {}
+    sid = it.get("sessionId")
+    return {
+        "sessionId": sid,
+        "running": bool(it.get("running")),
+        "title": v.get("title") or (sid or "")[:22],
+        "uncachedInputTokens": tu.get("uncachedInputTokens") or 0,
+        "cacheReadTokens": tu.get("cacheReadTokens") or 0,
+        "cacheWriteTokens": tu.get("cacheWriteTokens") or 0,
+        "outputTokens": tu.get("outputTokens") or 0,
+        "costCents": tu.get("costCents"),
+        "costPeakCents": tu.get("costPeakCents") or 0,
+        "costOffpeakCents": tu.get("costOffpeakCents") or 0,
+        "ssTurns": (v.get("sessionStats") or {}).get("turns") or 0,
+        "ssSteps": (v.get("sessionStats") or {}).get("steps") or 0,
+        "ssLlmMs": (v.get("sessionStats") or {}).get("llmMs") or 0,
+        "ssToolMs": (v.get("sessionStats") or {}).get("toolMs") or 0,
+        "ssTtftMs": (v.get("sessionStats") or {}).get("ttftMs") or 0,
+        "ssTtftSteps": (v.get("sessionStats") or {}).get("ttftSteps") or 0,
+        "ssDecodeMs": (v.get("sessionStats") or {}).get("decodeMs") or 0,
+        "ssDecodeTokens": (v.get("sessionStats") or {}).get("decodeTokens") or 0,
+        "lastOutputAt": it.get("updatedAt") or 0,                       # 最后输出/活动时间(ms)
+        "model": model_map.get(sid) or it.get("model") or None,         # 使用模型(客户端或 hub 补全)
+    }
+
+
+def _cors(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "content-type"
+    resp.headers["Access-Control-Allow-Private-Network"] = "true"
+    return resp
+
+
+@app.route("/token")
+def token_dashboard():
+    return send_from_directory(BASE_DIR, "token-dashboard.html")
+
+
+@app.route("/api/token/aggregate", methods=["GET", "OPTIONS"])
+def api_token_aggregate():
+    if request.method == "OPTIONS":
+        return _cors(Response("", 204))
+    nas_items = _dsh_sessionlist(_DSH_NAS_URL, _DSH_NAS_AUTH)
+    nas_model_map = _nas_model_map()      # 经 session.models RPC 补全 NAS 会话的 model
+    instances = []
+    if nas_items is not None:
+        instances.append({"key": "nas", "name": "NAS \u00b7 \u624b\u673a/Web/\u516c\u7f51", "online": True,
+                          "updatedAt": int(time.time() * 1000),
+                          "items": [_norm_item(i, nas_model_map) for i in nas_items]})
+    else:
+        instances.append({"key": "nas", "name": "NAS \u00b7 \u624b\u673a/Web/\u516c\u7f51", "online": False,
+                          "updatedAt": int(time.time() * 1000), "items": []})
+    with _LOCAL_CACHE_LOCK:
+        loc = dict(_LOCAL_CACHE)
+    if loc.get("items"):
+        instances.append({"key": "local", "name": loc.get("client", "\u672c\u673a \u00b7 \u684c\u9762/Web"), "online": True,
+                          "updatedAt": loc.get("updatedAt", 0),
+                          "items": [_norm_item(i) for i in loc["items"]],
+                          "stale": (time.time() * 1000 - loc.get("updatedAt", 0)) > 5 * 60 * 1000})
+    return _cors(Response(json.dumps({"instances": instances}, ensure_ascii=False), mimetype="application/json"))
+
+
+@app.route("/api/token/push", methods=["POST", "OPTIONS"])
+def api_token_push():
+    if request.method == "OPTIONS":
+        return _cors(Response("", 204))
+    _k = request.args.get("k") or request.headers.get("x-hub-key")
+    if not _HUB_KEY or _k != _HUB_KEY:      # 未配置密钥时一律拒绝写入
+        return _cors(Response(json.dumps({"ok": False, "error": "unauthorized"}, ensure_ascii=False), mimetype="application/json")), 403
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        items = body.get("items") or []
+        client = body.get("client") or "\u672c\u673a \u00b7 \u684c\u9762/Web"
+        with _LOCAL_CACHE_LOCK:
+            _LOCAL_CACHE["items"] = items
+            _LOCAL_CACHE["client"] = client
+            _LOCAL_CACHE["updatedAt"] = int(time.time() * 1000)
+        _save_local_cache()
+        return _cors(Response(json.dumps({"ok": True, "cached": len(items)}, ensure_ascii=False), mimetype="application/json"))
+    except Exception as e:
+        return _cors(Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json")), 400
+
 
 if __name__ == "__main__":
     # 热更新看门狗: 配合宿主机 bind-mount, app.py 被修改后自动重启

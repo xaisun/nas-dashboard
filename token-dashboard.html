@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSH Token 用量与计费 · 全客户端总览</title>
+<link rel="icon" href="data:image/x-icon;base64,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">
+<style>
+  :root {
+    --bg: #0b1220;
+    --glow1: rgba(56,189,248,.10);
+    --glow2: rgba(52,211,153,.07);
+    --card: rgba(255,255,255,.045);
+    --border: rgba(255,255,255,.09);
+    --text: #e6edf6;
+    --dim: #8b9bb4;
+    --accent: #38bdf8;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --chip: rgba(255,255,255,.05);
+    --track: rgba(255,255,255,.08);
+    --divider: rgba(255,255,255,.07);
+    --scroll: rgba(255,255,255,.15);
+    --scroll-hover: rgba(255,255,255,.3);
+    --radius: 14px;
+    --hover: rgba(255,255,255,.05);
+    --panel: var(--card);
+    --panel2: rgba(255,255,255,.06);
+    --blue: #38bdf8;
+    --violet: #a78bfa;
+    --teal: #2dd4bf;
+    --neutral: #8b9bb4;
+    --gold1: #fbbf24;
+    --gold2: #f59e0b;
+    --muted: #8b9bb4;
+    --caption: #8b9bb4;
+    --label2: #e6edf6;
+    --btn-bg: rgba(255,255,255,.06);
+    --btn-bg-hover: rgba(255,255,255,.12);
+    --ok-bg: rgba(52,211,153,.12);
+    --ok-bd: rgba(52,211,153,.35);
+    --warn-bg: rgba(251,191,36,.12);
+    --warn-bd: rgba(251,191,36,.4);
+  }
+  :root[data-theme="light"] {
+    --bg: #eef2f7;
+    --glow1: rgba(2,132,199,.09);
+    --glow2: rgba(5,150,105,.06);
+    --card: rgba(255,255,255,.88);
+    --border: rgba(15,40,80,.13);
+    --text: #1e293b;
+    --dim: #5b6b84;
+    --accent: #0284c7;
+    --green: #059669;
+    --amber: #d97706;
+    --red: #dc2626;
+    --chip: rgba(15,40,80,.05);
+    --track: rgba(15,40,80,.09);
+    --divider: rgba(15,40,80,.08);
+    --scroll: rgba(15,40,80,.2);
+    --scroll-hover: rgba(15,40,80,.35);
+    --hover: rgba(15,40,80,.05);
+    --panel: rgba(255,255,255,.88);
+    --panel2: #ffffff;
+    --blue: #0284c7;
+    --violet: #8b5cf6;
+    --teal: #0d9488;
+    --neutral: #6b7280;
+    --gold1: #b45309;
+    --gold2: #c2410c;
+    --muted: #5b6b84;
+    --caption: #5b6b84;
+    --label2: #1e293b;
+    --btn-bg: rgba(15,40,80,.05);
+    --btn-bg-hover: rgba(15,40,80,.1);
+    --ok-bg: rgba(5,150,105,.1);
+    --ok-bd: rgba(5,150,105,.4);
+    --warn-bg: rgba(217,119,6,.1);
+    --warn-bd: rgba(217,119,6,.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    color: var(--text);
+    font: 13px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 500px at 80% -10%, var(--glow1), transparent 60%),
+      radial-gradient(900px 400px at 10% -10%, var(--glow2), transparent 60%),
+      var(--bg);
+    transition: background .3s;
+  }
+  .wrap { width: 100%; max-width: 1560px; margin: 0 auto; min-height: 100vh; padding: 18px clamp(16px,2.5vw,40px) 22px; }
+  .layout { display: flex; flex-direction: column; gap: 14px; }
+
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 9px; flex: none; overflow: hidden;
+    background: rgba(255,255,255,.04); border: 1px solid var(--border);
+    display: grid; place-items: center;
+    box-shadow: 0 6px 20px rgba(56,189,248,.25);
+  }
+  .logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .title-box h1 { font-size: 18px; font-weight: 700; letter-spacing: .3px; line-height: 1.3; }
+  .title-box .sub { color: var(--dim); font-size: 11.5px; }
+  .status { color: var(--dim); font-size: 12px; margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .vp { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .live { color: var(--green); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  .dead { color: var(--red); display: inline-flex; align-items: center; gap: 6px; }
+  .dead::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* ── instance status chips ── */
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; backdrop-filter: blur(6px);
+  }
+  .chip .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--dim); }
+  .chip .dot.on { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,.7); }
+  .chip .dot.off { background: var(--red); }
+  .chip .nm { font-weight: 600; font-size: 12.5px; }
+  .chip .meta { color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+  /* ── combined hero ── */
+  .hero {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px 16px; overflow: hidden; backdrop-filter: blur(6px);
+  }
+  .hero::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56,189,248,.6), rgba(52,211,153,.6), transparent); }
+  .hero-title { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .hero-title h2 { font-size: 15px; font-weight: 700; }
+  .badge { font-size: 11.5px; padding: 3px 10px; border-radius: 99px; font-weight: 600; letter-spacing: .3px;
+    background: var(--ok-bg); color: var(--green); border: 1px solid var(--ok-bd); }
+  .hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 12px; }
+  .stat { position: relative; border-radius: var(--radius); padding: 13px 15px; background: var(--card);
+    border: 1px solid var(--border); transition: all .18s ease; overflow: hidden; backdrop-filter: blur(6px); }
+  .stat::before { content: ""; position: absolute; top: 0; left: 14px; width: 26px; height: 2px; border-radius: 99px;
+    background: var(--acc, var(--accent)); opacity: .85; }
+  .stat:hover { background: rgba(255,255,255,.07); transform: translateY(-2px); border-color: var(--accent); }
+  .stat .k { color: var(--dim); font-size: 11.5px; letter-spacing: .3px; margin-bottom: 3px; }
+  .stat .v { font-size: clamp(16px,1.7vw,23px); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.35; }
+  .stat .v small { font-size: 12px; color: var(--dim); font-weight: 500; }
+  .stat .s { color: var(--dim); font-size: 11px; margin-top: 2px; }
+  .acc-blue { --acc: var(--blue); } .acc-violet { --acc: var(--violet); }
+  .acc-teal { --acc: var(--teal); } .acc-amber { --acc: var(--amber); } .acc-green { --acc: var(--green); }
+  .cost-v { background: linear-gradient(90deg, var(--gold1), var(--gold2)); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 22px; }
+
+  /* ── per-instance cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap: 12px; }
+  .icard { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; backdrop-filter: blur(6px); position: relative; }
+  .icard .ih { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .icard .ih .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .icard .ih .dot.on { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,.7); }
+  .icard .ih .dot.off { background: var(--red); }
+  .icard .ih .nm { font-weight: 700; font-size: 13.5px; }
+  .icard .ih .st { margin-left: auto; font-size: 11px; color: var(--dim); }
+  .icard .igrid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px 14px; }
+  .icard .igrid .c { font-size: 11px; color: var(--dim); }
+  .icard .igrid .c b { display: block; color: var(--text); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .icard .comp { margin-top: 12px; }
+  .icard .comp .bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; gap: 2px; background: var(--track); }
+  .icard .comp .seg { height: 100%; }
+  .icard .comp .sys { background: linear-gradient(90deg,#64748b,var(--neutral)); }
+  .icard .comp .tools { background: linear-gradient(90deg,#8a6cf0,var(--violet)); }
+  .icard .comp .msg { background: linear-gradient(90deg,#0ea5e9,var(--accent)); }
+  .icard .comp .legend { display: flex; gap: 14px; margin-top: 7px; font-size: 10.5px; color: var(--dim); flex-wrap: wrap; }
+  .icard .comp .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 5px; }
+  .icard .stale { margin-top: 10px; font-size: 11px; color: var(--amber); background: var(--warn-bg); border: 1px solid var(--warn-bd); border-radius: 8px; padding: 5px 9px; }
+
+  /* ── sessions panel ── */
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; backdrop-filter: blur(6px); }
+  .panel .panel-head { padding: 13px 20px 11px; font-size: 12.5px; font-weight: 600; color: var(--dim); letter-spacing: 2px;
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .panel .panel-head::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .col-all { max-height: 52vh; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+  .col-all::-webkit-scrollbar { width: 5px; }
+  .col-all::-webkit-scrollbar-track { background: transparent; }
+  .col-all::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 99px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 10px 18px; border-bottom: 1px solid var(--divider); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  th { color: var(--dim); font-weight: 500; font-size: 11.5px; letter-spacing: 1px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr { transition: background .12s; }
+  tbody tr:hover td { background: var(--hover); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 2px 9px; border-radius: 99px; background: var(--chip); border: 1px solid var(--border); color: var(--dim); }
+  .tag .d { width: 7px; height: 7px; border-radius: 50%; }
+  .sess { display: flex; align-items: center; gap: 9px; max-width: 240px; overflow: hidden; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot.run { background: var(--green); box-shadow: 0 0 7px rgba(52,211,153,.7); }
+  .dot.idle { background: var(--dim); }
+  .sess .t { overflow: hidden; text-overflow: ellipsis; }
+  .mini-bar { width: 60px; height: 4px; border-radius: 99px; background: var(--track); overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 8px; }
+  .mini-bar > div { height: 100%; background: linear-gradient(90deg,var(--accent),var(--green)); border-radius: 99px; }
+  .empty { color: var(--dim); padding: 44px; text-align: center; }
+  .foot { color: var(--dim); font-size: 11px; margin-top: 18px; text-align: center; letter-spacing: .2px; }
+
+  .fbtns { position: fixed; bottom: 16px; right: 16px; z-index: 99; display: flex; flex-direction: column; gap: 8px; }
+  .fbtns button { width: 36px; height: 36px; border-radius: 10px; cursor: pointer; background: var(--card); border: 1px solid var(--border);
+    color: var(--dim); font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: all .2s; backdrop-filter: blur(6px); }
+  .fbtns button:hover { background: var(--btn-bg-hover); color: var(--text); }
+  @media (max-width: 900px) {
+    .wrap { padding: 14px clamp(12px,2vw,24px) 22px; }
+    table th, table td { padding: 9px 12px; }
+    th, td { font-size: 12px; }
+  }
+  /* ── 手机适配 ── */
+  @media (max-width: 640px) {
+    .wrap { padding: 12px 12px 76px; }
+    header { flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .title-box { min-width: 0; flex: 1 1 auto; }
+    .title-box h1 { font-size: 15.5px; }
+    .title-box .sub { font-size: 10.5px; }
+    .status { margin-left: 0; width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+    .vp { display: none; }
+    .hero-stats { grid-template-columns: repeat(2,1fr); gap: 8px; }
+    .hero { padding: 14px 14px 12px; }
+    .stat { padding: 11px 12px; }
+    .stat .v { font-size: 17px; }
+    .cards { grid-template-columns: 1fr; }
+    .chips { gap: 8px; }
+    .chip { padding: 8px 12px; flex: 1 1 auto; }
+    .panel .panel-head { letter-spacing: 1px; padding: 12px 14px 10px; }
+    .col-all { max-height: none; }
+    .col-all table { font-size: 12.5px; }
+    .col-all thead { display: none; }
+    .col-all tr { display: block; margin: 0 0 10px; padding: 4px 2px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+    .col-all tbody tr:hover td { background: transparent; }
+    .col-all td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 12px; border-bottom: 1px solid var(--divider); white-space: normal; text-align: right; }
+    .col-all td:last-child { border-bottom: none; }
+    .col-all td::before { content: attr(data-label); color: var(--dim); font-size: 11px; text-align: left; flex: none; max-width: 42%; }
+    .col-all td .sess { max-width: none; min-width: 0; }
+    .col-all td .sess .t { white-space: normal; }
+    .col-all tr td:first-child { background: rgba(255,255,255,.03); border-radius: 11px 11px 0 0; }
+    .fbtns { bottom: 12px; right: 12px; gap: 8px; }
+    .fbtns button { width: 42px; height: 42px; font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><img src="data:image/x-icon;base64,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" alt="DSH"></div>
+    <div class="title-box">
+      <h1>DSH Token 用量与计费 · 全客户端总览</h1>
+      <div class="sub">DeepSeek Harness · 本机 / NAS / 公网 统一汇聚</div>
+    </div>
+    <span class="status"><span id="status">连接中…</span><a id="hubLink" href="/token" target="_blank" rel="noopener" style="display:none;margin-left:10px;color:var(--accent);text-decoration:none;border:1px solid var(--border);padding:2px 10px;border-radius:99px;font-size:11.5px;">🌐 汇聚总看板</a><span id="viewport" class="vp"></span></span>
+  </header>
+
+  <div class="layout">
+    <div id="chips" class="chips"></div>
+    <div id="combined" class="hero"></div>
+    <div id="cards" class="cards"></div>
+    <div class="panel">
+      <div class="panel-head">全部会话（跨客户端合并）</div>
+      <div id="all" class="col-all"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head" style="letter-spacing:1px">分时段统计
+        <select id="dimSel" title="统计维度" style="margin-left:auto;background:var(--btn-bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-size:12px;font-family:inherit;cursor:pointer">
+          <option value="hour">每小时</option>
+          <option value="day" selected>每日</option>
+          <option value="month">每月</option>
+          <option value="quarter">每季</option>
+          <option value="year">每年</option>
+        </select>
+      </div>
+      <div id="bytime" class="col-all"></div>
+    </div>
+  </div>
+
+  <div class="foot">费用按 DeepSeek 官方价（闲时半价）估算 · 数据每 5s 刷新 · 本机桌面/Web 实时直连，NAS/公网经汇聚服务</div>
+</div>
+
+<div class="fbtns">
+  <button id="theme" title="切换主题">☀️</button>
+  <button id="fullscreen" title="全屏/退出全屏">⛶</button>
+  <button id="refresh" title="刷新">↻</button>
+</div>
+
+<script>
+"use strict";
+// 汇聚密钥：优先取 URL 的 ?k=，其次 localStorage.hubKey；留空则不带鉴权头。
+// 需与服务端环境变量 TOKEN_HUB_KEY 一致（服务端未配置时写入接口关闭）。
+const HUB_KEY = (new URLSearchParams(location.search).get("k") || localStorage.getItem("hubKey") || "");
+const PRICE = { peak:{ input:3.0, cacheHit:0.10, output:9.0 }, offpeak:{ input:1.5, cacheHit:0.05, output:4.5 } };
+
+function fmtTokens(n){ if(n==null||n===0) return "0"; if(n<1e4) return String(n); if(n<1e8) return (n/1e4).toFixed(n<1e6?1:0)+"万"; return (n/1e8).toFixed(1)+"亿"; }
+function fmtYuan(c){ return "¥"+(c/100).toFixed(2); }
+function fmtYuanD(y){ return "¥"+y.toFixed(2); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function fmtAgo(ts){ if(!ts) return "—"; const d=Date.now()-ts; if(d<60000) return "刚刚"; if(d<3600000) return Math.floor(d/60000)+" 分钟前"; if(d<86400000) return Math.floor(d/3600000)+" 小时前"; return Math.floor(d/86400000)+" 天前"; }
+function pctOf(v){ return Math.max(0,Math.min(100,v)); }
+// ── 运行质量（sessionStats）格式化 ──
+function fmtDur(ms){ if(!ms||ms<=0) return "—"; let s=Math.round(ms/1000); const h=Math.floor(s/3600); s%=3600; const m=Math.floor(s/60); s%=60; let o=""; if(h)o+=h+"h"; if(m)o+=m+"m"; o+=s+"s"; return o; }
+function fmtTtft(ms,steps){ if(!steps||!ms) return "—"; return (ms/steps/1000).toFixed(1)+"s"; }
+function fmtSpeed(decMs,decTok){ if(!decMs||!decTok) return "—"; return Math.round(decTok/(decMs/1000))+" tok/s"; }
+
+// ── normalize a session.list item (raw OR hub-normalized) ──
+function norm(it){
+  const v=(it.projections&&it.projections.values)||{};
+  const tu=v.tokenUsage||{};
+  const ss=v.sessionStats||{};
+  const g=(a,b)=> (a!=null?a:0)||(b||0);
+  const g2=(a,b)=> (a!=null?a:(b!=null?b:0));
+  return {
+    sessionId: it.sessionId,
+    running: !!it.running,
+    title: v.title || (it.sessionId||"").slice(0,22),
+    uncached: g(tu.uncachedInputTokens, it.uncachedInputTokens),
+    hit: g(tu.cacheReadTokens, it.cacheReadTokens),
+    write: g(tu.cacheWriteTokens, it.cacheWriteTokens),
+    out: g(tu.outputTokens, it.outputTokens),
+    costCents: tu.costCents!=null?tu.costCents:(it.costCents!=null?it.costCents:null),
+    costPeak: g(tu.costPeakCents, it.costPeakCents),
+    costOff: g(tu.costOffpeakCents, it.costOffpeakCents),
+    turns: g2(ss.turns, it.ssTurns),
+    steps: g2(ss.steps, it.ssSteps),
+    llmMs: g2(ss.llmMs, it.ssLlmMs),
+    toolMs: g2(ss.toolMs, it.ssToolMs),
+    ttftMs: g2(ss.ttftMs, it.ssTtftMs),
+    ttftSteps: g2(ss.ttftSteps, it.ssTtftSteps),
+    decodeMs: g2(ss.decodeMs, it.ssDecodeMs),
+    decodeTokens: g2(ss.decodeTokens, it.ssDecodeTokens),
+    lastOutputAt: it.updatedAt || it.lastOutputAt || 0,   // 最后输出/活动时间(ms)
+    model: it.model || null                               // 使用模型
+  };
+}
+function costOf(n){
+  if(n.costCents!=null) return {exact:true, total:n.costCents/100, peak:n.costPeak/100, off:n.costOff/100};
+  const miss=n.uncached+n.write, hit=n.hit, out=n.out;
+  const lo=(miss*PRICE.offpeak.input + hit*PRICE.offpeak.cacheHit + out*PRICE.offpeak.output)/1e6;
+  const hi=(miss*PRICE.peak.input + hit*PRICE.peak.cacheHit + out*PRICE.peak.output)/1e6;
+  return {exact:false, low:lo, high:hi};
+}
+// sum cost objects into a combined view
+function sumCost(costs){
+  let exact=true, tot=0, peak=0, off=0, lo=0, hi=0;
+  for(const c of costs){
+    if(c.exact){ tot+=c.total; peak+=c.peak; off+=c.off; lo+=c.total; hi+=c.total; }
+    else { exact=false; lo+=c.low; hi+=c.high; }
+  }
+  return exact ? {exact:true, total:tot, peak, off} : {exact:false, low:lo, high:hi};
+}
+function costTxt(c){
+  if(!c) return "–";
+  if(c.exact) return fmtYuanD(c.total);
+  return fmtYuanD(c.low)+" – "+fmtYuanD(c.high);
+}
+
+// ── hub resolution ──
+function isLocalOrigin(){ const h=location.hostname; return h==="127.0.0.1"||h==="localhost"; }
+function hubCandidates(){
+  // 默认同源相对请求；需要跨机汇聚时用 ?hub=https://your-hub:8904 指定
+  const hub = new URLSearchParams(location.search).get("hub");
+  return hub ? [hub] : [""];
+}
+async function hubGet(path){
+  for(const base of hubCandidates()){
+    try{ const r=await fetch(base+path,{headers:{"x-hub-key":HUB_KEY}}); if(r.ok) return await r.json(); }catch(e){}
+  }
+  return null;
+}
+async function hubPost(path,body){
+  for(const base of hubCandidates()){
+    try{ const r=await fetch(base+path+"?k="+encodeURIComponent(HUB_KEY),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}); if(r.ok) return await r.json(); }catch(e){}
+  }
+  return null;
+}
+function rpcBody(){ return JSON.stringify({type:"client-request",rpcId:(crypto.randomUUID&&crypto.randomUUID())||String(Date.now()),method:"session.list",payload:{}}); }
+
+// ── aggregate a list of normalized items into totals ──
+function totals(items){
+  let uncached=0, hit=0, write=0, out=0, turns=0, steps=0, llmMs=0, toolMs=0, sessions=items.length, running=0;
+  const costs=[];
+  for(const n of items){
+    uncached+=n.uncached; hit+=n.hit; write+=n.write; out+=n.out;
+    turns+=n.turns; steps+=n.steps; llmMs+=n.llmMs; toolMs+=n.toolMs;
+    const c=costOf(n); costs.push(c);
+    if(n.running) running++;
+  }
+  const cost=sumCost(costs);
+  const denom=hit+uncached+write;
+  const hitRate = denom>0 ? Math.round(hit/denom*100) : 0;
+  return {uncached,hit,write,out,turns,steps,llmMs,toolMs,sessions,running,cost,hitRate};
+}
+
+// ── render ──
+function renderChips(instances){
+  return instances.map(i=>{
+    const cls = i.online ? "on" : "off";
+    const meta = i.online ? (i.items.length+" 会话 · "+fmtAgo(i.updatedAt)) : "离线";
+    const warn = i.stale ? " · 快照过期" : "";
+    return '<div class="chip"><span class="dot '+cls+'"></span><span class="nm">'+esc(i.name)+'</span><span class="meta">'+meta+warn+'</span></div>';
+  }).join("");
+}
+function renderCombined(instForCombined){
+  const t = totals(instForCombined);
+  const costHtml = t.cost.exact
+    ? '<div class="stat acc-amber"><div class="k">费用 · 精确</div><div class="v cost-v">'+fmtYuanD(t.cost.total)+'</div><div class="s"><span style="color:var(--amber)">高峰 '+fmtYuanD(t.cost.peak)+'</span> · <span style="color:var(--green)">闲时 '+fmtYuanD(t.cost.off)+'</span></div></div>'
+    : '<div class="stat acc-amber"><div class="k">费用 · 估算(闲时–高峰)</div><div class="v cost-v">'+fmtYuanD(t.cost.low)+' – '+fmtYuanD(t.cost.high)+'</div><div class="s">按 DeepSeek 官方价</div></div>';
+  return '<div class="hero-title"><h2>全客户端合计</h2><span class="badge">'+t.sessions+' 会话 · '+t.running+' 运行中</span></div>'+
+    '<div class="hero-stats">'+
+      '<div class="stat acc-blue"><div class="k">未缓存输入</div><div class="v">'+fmtTokens(t.uncached)+'</div></div>'+
+      '<div class="stat acc-violet"><div class="k">缓存命中输入</div><div class="v">'+fmtTokens(t.hit)+'</div><div class="s">命中率 '+t.hitRate+'%</div></div>'+
+      '<div class="stat acc-teal"><div class="k">输出</div><div class="v">'+fmtTokens(t.out)+'</div></div>'+
+      costHtml+
+      '<div class="stat acc-green"><div class="k">总 token</div><div class="v">'+fmtTokens(t.uncached+t.hit+t.write+t.out)+'</div><div class="s">输入+缓存+输出</div></div>'+
+      '<div class="stat acc-blue"><div class="k">总轮次</div><div class="v">'+t.turns+'</div></div>'+
+      '<div class="stat acc-violet"><div class="k">总步骤</div><div class="v">'+t.steps+'</div></div>'+
+    '</div>';
+}
+function compBar(t){
+  const total=t.uncached+t.hit+t.write+t.out; if(total<=0) return "";
+  const pUn=Math.round(t.uncached/total*100), pHit=Math.round((t.hit+t.write)/total*100), pMsg=Math.max(0,100-pUn-pHit);
+  return '<div class="comp"><div class="bar">'+
+    '<div class="seg sys" style="width:'+pUn+'%"></div>'+
+    '<div class="seg tools" style="width:'+pHit+'%"></div>'+
+    '<div class="seg msg" style="width:'+pMsg+'%"></div></div>'+
+    '<div class="legend"><span><i class="sw-sys" style="background:var(--neutral)"></i>未缓存 <b>'+fmtTokens(t.uncached)+'</b></span>'+
+    '<span><i style="background:var(--violet)"></i>缓存 <b>'+fmtTokens(t.hit+t.write)+'</b></span>'+
+    '<span><i style="background:var(--accent)"></i>输出 <b>'+fmtTokens(t.out)+'</b></span></div></div>';
+}
+function renderCards(instances){
+  return instances.map(i=>{
+    const t=totals(i.items.map(norm));
+    const dot = i.online?"on":"off";
+    const st = i.online ? fmtAgo(i.updatedAt) : "离线";
+    const stale = i.stale ? '<div class="stale">⚠ 本机离线 · 最后推送 '+fmtAgo(i.updatedAt)+'</div>' : "";
+    return '<div class="icard"><div class="ih"><span class="dot '+dot+'"></span><span class="nm">'+esc(i.name)+'</span><span class="st">'+st+'</span></div>'+
+      '<div class="igrid">'+
+        '<div class="c">会话<b>'+t.sessions+'</b></div>'+
+        '<div class="c">运行中<b>'+t.running+'</b></div>'+
+        '<div class="c">未缓存输入<b>'+fmtTokens(t.uncached)+'</b></div>'+
+        '<div class="c">缓存命中<b>'+fmtTokens(t.hit)+'</b></div>'+
+        '<div class="c">输出<b>'+fmtTokens(t.out)+'</b></div>'+
+        '<div class="c">费用<b style="color:var(--gold1)">'+costTxt(t.cost)+'</b></div>'+
+        '<div class="c">轮次<b>'+t.turns+'</b></div>'+
+        '<div class="c">步骤<b>'+t.steps+'</b></div>'+
+      '</div>'+compBar(t)+stale+'</div>';
+  }).join("");
+}
+function renderTable(instances){
+  const rows=[];
+  for(const i of instances){
+    const col = i.key==="nas" ? "var(--accent)" : "var(--green)";
+    for(const raw of i.items){
+      const n=norm(raw);
+      const c=costOf(n);
+      const tkn=n.uncached+n.hit+n.write+n.out;
+      if(tkn<=0 && n.turns<=0 && !(n.costCents!=null)) continue; // 跳过零 token 且零轮次 空会话噪声
+      const hitPct = (n.hit+n.uncached+n.write)>0 ? Math.round(n.hit/(n.hit+n.uncached+n.write)*100) : 0;
+      rows.push({inst:i.name, col, n, c, hitPct, raw});
+    }
+  }
+  if(rows.length===0) return '<div class="empty">暂无会话数据</div>';
+  rows.sort((a,b)=> (b.n.running-a.n.running) || ((b.n.uncached+b.n.hit+b.n.out)-(a.n.uncached+a.n.hit+a.n.out)) || (b.n.turns-a.n.turns));
+  const body = rows.map(r=>{
+    const n=r.n;
+    return '<tr>'+
+      '<td data-label="客户端"><span class="tag"><span class="d" style="background:'+r.col+'"></span>'+esc(r.inst)+'</span></td>'+
+      '<td data-label="会话"><div class="sess"><span class="dot '+(n.running?"run":"idle")+'"></span><span class="t">'+esc(n.title)+'</span></div></td>'+
+      '<td data-label="模型">'+(n.model?'<span style="display:inline-block;padding:1px 8px;border-radius:99px;background:var(--chip);border:1px solid var(--border);font-size:11px;color:var(--violet)">'+esc(n.model)+'</span>':'<span style="color:var(--dim)">未知</span>')+'</td>'+
+      '<td class="num" data-label="轮次">'+n.turns+'</td>'+
+      '<td class="num" data-label="步骤">'+n.steps+'</td>'+
+      '<td class="num" data-label="未缓存输入">'+fmtTokens(n.uncached)+'</td>'+
+      '<td class="num" data-label="缓存命中">'+fmtTokens(n.hit)+' <small style="color:var(--dim)">'+r.hitPct+'%</small></td>'+
+      '<td class="num" data-label="输出">'+fmtTokens(n.out)+'</td>'+
+      '<td class="num" data-label="LLM耗时">'+fmtDur(n.llmMs)+'</td>'+
+      '<td class="num" data-label="工具耗时">'+fmtDur(n.toolMs)+'</td>'+
+      '<td class="num" data-label="首token">'+fmtTtft(n.ttftMs,n.ttftSteps)+'</td>'+
+      '<td class="num" data-label="速度">'+fmtSpeed(n.decodeMs,n.decodeTokens)+'</td>'+
+      '<td class="num" data-label="最后输出">'+fmtAgo(n.lastOutputAt)+'</td>'+
+      '<td class="num" data-label="费用" style="color:var(--gold1);font-weight:600">'+costTxt(r.c)+'</td>'+
+      '</tr>';
+  }).join("");
+  return '<table><thead><tr><th>客户端</th><th>会话</th><th class="num">轮次</th><th class="num">步骤</th><th class="num">未缓存输入</th><th class="num">缓存命中</th><th class="num">输出</th><th class="num">LLM耗时</th><th class="num">工具耗时</th><th class="num">首token</th><th class="num">速度</th><th class="num">最后输出</th><th class="num">费用</th></tr></thead><tbody>'+body+'</tbody></table>';
+}
+
+// ── 分时段统计（每小时 / 日 / 月 / 季 / 年）──
+function bucketKey(ts, dim){
+  if(!ts) return null;
+  const d=new Date(ts), y=d.getFullYear(), m=d.getMonth()+1, day=d.getDate(), hh=d.getHours();
+  const p=n=> n<10?"0"+n:String(n);
+  if(dim==="hour")    return y+"-"+p(m)+"-"+p(day)+" "+p(hh)+":00";
+  if(dim==="day")     return y+"-"+p(m)+"-"+p(day);
+  if(dim==="month")   return y+"-"+p(m);
+  if(dim==="year")    return String(y);
+  if(dim==="quarter") return y+"-Q"+Math.floor((m-1)/3+1);
+  return y+"-"+p(m);
+}
+function renderByTime(items, dim){
+  const map=new Map();
+  for(const n of items){
+    const key=bucketKey(n.lastOutputAt, dim);
+    if(!key) continue;
+    let b=map.get(key);
+    if(!b){ b={key, sessions:0, running:0, uncached:0, hit:0, write:0, out:0, turns:0, steps:0, llmMs:0, toolMs:0, costs:[]}; map.set(key,b); }
+    b.sessions++; if(n.running) b.running++;
+    b.uncached+=n.uncached; b.hit+=n.hit; b.write+=n.write; b.out+=n.out;
+    b.turns+=n.turns; b.steps+=n.steps; b.llmMs+=n.llmMs; b.toolMs+=n.toolMs;
+    b.costs.push(costOf(n));
+  }
+  const rows=[...map.values()].sort((a,b)=> a.key<b.key?1:(a.key>b.key?-1:0));
+  if(rows.length===0) return '<div class="empty">该时段暂无数据</div>';
+  const body=rows.map(b=>{
+    const c=sumCost(b.costs);
+    const tkn=b.uncached+b.hit+b.write+b.out;
+    const hitPct=(b.hit+b.uncached+b.write)>0?Math.round(b.hit/(b.hit+b.uncached+b.write)*100):0;
+    return '<tr>'+
+      '<td data-label="时段">'+esc(b.key)+'</td>'+
+      '<td class="num" data-label="会话数">'+b.sessions+'</td>'+
+      '<td class="num" data-label="步骤">'+b.steps+'</td>'+
+      '<td class="num" data-label="未缓存输入">'+fmtTokens(b.uncached)+'</td>'+
+      '<td class="num" data-label="缓存命中">'+fmtTokens(b.hit)+' <small style="color:var(--dim)">'+hitPct+'%</small></td>'+
+      '<td class="num" data-label="输出">'+fmtTokens(b.out)+'</td>'+
+      '<td class="num" data-label="总token">'+fmtTokens(tkn)+'</td>'+
+      '<td class="num" data-label="LLM耗时">'+fmtDur(b.llmMs)+'</td>'+
+      '<td class="num" data-label="工具耗时">'+fmtDur(b.toolMs)+'</td>'+
+      '<td class="num" data-label="费用" style="color:var(--gold1);font-weight:600">'+costTxt(c)+'</td>'+
+      '</tr>';
+  }).join("");
+  const unit={hour:"每小时",day:"每日",month:"每月",quarter:"每季",year:"每年"}[dim]||dim;
+  return '<div style="color:var(--dim);font-size:11.5px;margin:0 2px 9px">按「'+unit+'」聚合 · 共 '+rows.length+' 个时段（按最后输出时间分桶）</div>'+
+    '<table><thead><tr><th>时段</th><th class="num">会话数</th><th class="num">步骤</th><th class="num">未缓存输入</th><th class="num">缓存命中</th><th class="num">输出</th><th class="num">总token</th><th class="num">LLM耗时</th><th class="num">工具耗时</th><th class="num">费用</th></tr></thead><tbody>'+body+'</tbody></table>';
+}
+
+async function loadAll(){
+  const status=document.getElementById("status");
+  try{
+    const agg=await hubGet("/api/token/aggregate");
+    let instances = (agg&&agg.instances)?agg.instances.slice():[];
+    // direct local (same-origin) when served from the local dsh
+    if(isLocalOrigin()){
+      try{
+        const r=await fetch("/api/session.list",{method:"POST",headers:{"content-type":"application/json"},body:rpcBody()});
+        const env=await r.json();
+        if(env&&env.result&&env.result.ok){
+          const items=env.result.value.items||[];
+          hubPost("/api/token/push",{client:"本机 · 桌面/Web",items});
+          const ni={key:"local",name:"本机 · 桌面/Web",online:true,updatedAt:Date.now(),items,stale:false};
+          const idx=instances.findIndex(i=>i.key==="local");
+          if(idx>=0) instances[idx]=ni; else instances.push(ni);
+        }
+      }catch(e){}
+    }
+    if(instances.length===0){ status.innerHTML='<span class="dead">无可用数据</span>'; return; }
+    const combinedItems=[];
+    for(const i of instances) for(const it of i.items) combinedItems.push(norm(it));
+    document.getElementById("chips").innerHTML=renderChips(instances);
+    document.getElementById("combined").innerHTML=renderCombined(combinedItems);
+    document.getElementById("cards").innerHTML=renderCards(instances);
+    document.getElementById("all").innerHTML=renderTable(instances);
+    document.getElementById("bytime").innerHTML=renderByTime(combinedItems, document.getElementById("dimSel").value);
+    status.innerHTML='<span class="live">实时更新中</span> · '+new Date().toLocaleTimeString("zh-CN");
+  }catch(e){
+    status.innerHTML='<span class="dead">汇聚服务不可达</span>';
+  }
+}
+document.getElementById("refresh").addEventListener("click", loadAll);
+document.getElementById("dimSel").addEventListener("change", loadAll);
+
+// ── theme ──
+(function(){ const root=document.documentElement, btn=document.getElementById("theme");
+  const saved=localStorage.getItem("dtd-theme")||"dark"; root.dataset.theme=saved;
+  btn.textContent=saved==="light"?"🌙":"☀️";
+  btn.addEventListener("click",()=>{ const n=root.dataset.theme==="light"?"dark":"light"; root.dataset.theme=n; localStorage.setItem("dtd-theme",n); btn.textContent=n==="light"?"🌙":"☀️"; });
+})();
+// ── fullscreen ──
+(function(){ const btn=document.getElementById("fullscreen"); const up=()=>{ btn.textContent=!!(document.fullscreenElement||document.webkitFullscreenElement)?"⤢":"⛶"; };
+  document.addEventListener("fullscreenchange",up); document.addEventListener("webkitfullscreenchange",up);
+  btn.addEventListener("click",()=>{ const el=document.documentElement; if(document.fullscreenElement||document.webkitFullscreenElement){ (document.exitFullscreen||document.webkitExitFullscreen).call(document).catch(()=>{}); }
+    else { (el.requestFullscreen||el.webkitRequestFullscreen).call(el).catch(()=>{}); } }); up();
+})();
+// ── viewport ──
+(function(){ const el=document.getElementById("viewport");
+  function up(){ el.textContent="视口 "+window.innerWidth+"×"+window.innerHeight; }
+  window.addEventListener("resize",up); up();
+})();
+// ── hub link (hide when already on the hub) ──
+(function(){ const hub = new URLSearchParams(location.search).get("hub");
+  const a=document.getElementById("hubLink");
+  if(hub){ a.href = hub.replace(/\/$/,"") + "/token"; a.style.display="inline-block"; } })();
+
+loadAll();
+setInterval(loadAll, 5000);
+</script>
+</body>
+</html>

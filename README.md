@@ -11,6 +11,7 @@
 - 🐳 **容器**（Docker 运行中/总数、容器状态列表）
 - 📁 **存储空间**（各分区/卷：文件系统、RAID、已用/总量）
 - 💽 **硬盘**（型号、容量、SSD/机械盘类型、SMART 温度、健康状态）
+- 💰 **Token 用量看板**（可选，`/token`：汇聚多台 DeepSeek Harness 实例的 token 与费用）
 
 数据每 5 秒自动刷新。
 
@@ -34,6 +35,7 @@ sudo docker compose up -d --build
 | `PORT` | `8904` | 监听端口 |
 | `NODE_ID` | `NODE-001` | 看板上显示的节点 ID |
 | `WEATHER_CITY` | 空(自动) | 天气：留空按公网 IP 自动识别；填 `lat,lon`(如 `22.27,113.57`)强制坐标；填城市名仅覆盖显示名。数据源 Open-Meteo（免费/无需 key） |
+| `TOKEN_HUB_KEY` | 空 | Token 汇聚密钥（见下节）。**留空 = 关闭 `/api/token/push` 写入接口** |
 
 修改后 `sudo docker compose up -d` 重建即可。
 
@@ -123,6 +125,35 @@ host_mounts.json updated: 6 disks; active->df: 2
 
 看板不会报错，`app.py` 会自动回退到「容器内只读 `lsblk`」模式：盘的型号、容量、类型都正常显示，但**已用 / 百分比显示 "—"**。想要容量数字，就把这个脚本跑起来。
 
+## Token 用量看板（可选，`/token`）
+
+`app.py` 里附带一个可选的「DeepSeek Harness Token 用量与计费」聚合页（`token-dashboard.html`），
+把多台 DSH 实例（本机 / NAS / 公网）的会话 token 数、缓存命中、费用合并到一张表。
+不接 DSH 也完全不影响主看板，不配置就是几个空接口。
+
+**它做两件事：**
+
+| 角色 | 行为 |
+|------|------|
+| 汇聚端（hub） | 本机 `/token` 页面直接读本机 DSH 的 `session.list`；再接收各客户端 POST 上来的用量 |
+| 客户端 | 打开 `/token`，把自己的 DSH 用量 POST 到 hub 的 `/api/token/push` |
+
+**相关环境变量：**
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `TOKEN_HUB_KEY` | 空 | 汇聚密钥。**留空则 `/api/token/push` 一律 403**，即关闭远程写入 |
+| `DSH_SESSION_URL` | `http://127.0.0.1:8080/api/session.list` | 本机 DSH 的会话列表 RPC 地址 |
+| `DSH_API_BASE` | `http://127.0.0.1:8080/api/` | 本机 DSH 的 RPC 前缀（用于 `session.models`） |
+| `DSH_BASIC_AUTH` | 空 | 访问 DSH 需要的 `Authorization` 头，形如 `Basic <base64(user:pass)>`；留空则不带鉴权 |
+
+页面侧：`/token?k=<密钥>` 指定汇聚密钥，`?hub=https://hub.example:8904` 指定跨机汇聚地址；
+两者也会从 `localStorage.hubKey` 读取。不带参数时按**同源**请求，即本机自采。
+
+> ⚠️ **注意暴露面**：`/api/token/aggregate`（读接口）不校验密钥，会返回会话标题与 token 数。
+> 如果这个看板挂在公网上，请自行加上鉴权（如反代 Basic Auth / Cloudflare Access），
+> 或不要把 `/token` 暴露到外网。
+
 ## 不带 Docker 直接运行（调试用）
 
 ```bash
@@ -144,6 +175,7 @@ PORT=8904 .venv/bin/python app.py
 nas-dashboard/
 ├── app.py                # Flask 后端: 采集 /proc、smartctl、Docker API
 ├── index.html            # 前端单页(纯原生, 无外部依赖)
+├── token-dashboard.html  # 可选: DSH Token 用量聚合页(挂在 /token)
 ├── host_mounts_gen.py    # 宿主侧容量采集(休眠安全), 生成 host_mounts.json
 ├── deploy.sh             # 一键部署脚本(检查 Docker + compose up)
 ├── power_probe.sh        # 硬盘电源状态探测(调试用)
@@ -158,4 +190,5 @@ nas-dashboard/
 
 - `host_mounts.json` —— 容量数据，由 `host_mounts_gen.py` 生成，经目录挂载供容器读取
 - `host_mounts.state` —— 上次 diskstats 扇区快照
+- `.token_local_cache.json` —— Token 汇聚端缓存各客户端最近一次上报
 - `__pycache__/` —— Python 缓存
