@@ -87,7 +87,11 @@
   .lunar-card { display:flex; flex-direction:column; justify-content:center; gap:7px; }
   /* justify-content:center 与 date/lunar/device 卡一致: 内容垂直居中,
      即使页面被滚动/窗口顶部被裁, 温度也不会像顶格排那样先被切掉(踩过坑) */
-  .weather-card { display:flex; flex-direction:column; justify-content:center; gap:10px; }
+  .weather-card { display:flex; flex-direction:column; justify-content:center; }
+  /* 天气卡内层容器: 卡片被压矮时(手机/平板横屏)由 JS 按比例整体缩放,
+     保证温度那行不会被 overflow:hidden 从顶部裁掉(2026-09-11 平板实拍踩到) */
+  .wc-inner { display:flex; flex-direction:column; gap:10px; width:100%;
+              flex:none; transform-origin:center center; }
   .device-card { display:flex; flex-direction:column; justify-content:center; }
   .date-main { font-size:40px; font-weight:800; letter-spacing:1px; line-height:1.1; white-space:nowrap; }
   .date-sub { color:var(--dim); margin-top:10px; font-size:40px; letter-spacing:1px; line-height:1.2; }
@@ -371,14 +375,19 @@
     #alm-title { font-size:11.5px; line-height:1.3; }
     .alm-row { font-size:12.5px; line-height:1.4; }
     .alm-extra { font-size:10.5px; margin-top:3px; }
-    .w-icon { font-size:34px; }
-    .w-temp { font-size:24px; }
-    .w-desc { font-size:11.5px; }
-    .w-days { gap:8px; margin-top:8px; }
-    .w-day { padding:5px 3px; font-size:11.5px; }
-    .w-day .d { font-size:11px; }
-    .w-day .t { font-size:11.5px; }
-    .w-day .r { font-size:11px; }
+    /* 天气卡: 矮屏(手机/平板横屏)每张卡只有 1/3 屏高, 内容必须再瘦一圈 ——
+       卡内是 overflow:hidden + 垂直居中, 内容超高时顶部那行(也就是温度)会被裁掉,
+       2026-09-11 平板实拍踩到过, 矮屏一律去掉装饰性图标、字号再收一档 */
+    .wc-inner { gap:6px; }
+    .w-icon { display:none; }
+    .w-temp { font-size:22px; line-height:1.1; }
+    .w-desc { font-size:11px; margin-top:1px; }
+    .w-wind { margin-top:1px; }
+    .w-days { gap:6px; margin-top:6px; }
+    .w-day { padding:4px 2px; font-size:11px; }
+    .w-day .d { font-size:10.5px; }
+    .w-day .t { font-size:11px; }
+    .w-day .r { font-size:10.5px; }
     .dev-name { font-size:17px; gap:6px; }
     .badge, .live { font-size:10px; padding:2px 7px; }
     .node-id, .ip-row, .uptime { font-size:11px; margin-top:4px; }
@@ -433,6 +442,7 @@
       <div class="lunar" id="lunar"></div>
     </div>
     <div class="card weather-card">
+     <div class="wc-inner">
       <div class="weather-head">
         <div class="w-icon" id="w-icon">🌤️</div>
         <div class="w-mid">
@@ -445,6 +455,7 @@
         </div>
       </div>
       <div class="w-days" id="w-days"></div>
+     </div>
     </div>
     <div class="card lunar-card" id="alm-box">
       <div id="alm-title">—</div>
@@ -792,6 +803,22 @@ function render(d) {
     return `<tr><td style="font-family:ui-monospace,monospace">${x.name}</td><td title="${x.model}">${x.model.length>20?x.model.slice(0,20)+"…":x.model}</td><td>${x.size}</td><td>${x.type}</td><td>${tempHtml}</td><td>${healthHtml}</td></tr>`;
   }).join("");
 
+  fitWeatherCard();
+}
+
+// 天气卡自适应: 卡片被压矮时(手机/平板横屏, 卡高只有 1/3 屏高)把内容整体等比缩小,
+// 避免 overflow:hidden + 垂直居中把最上面那行(温度)裁掉
+function fitWeatherCard() {
+  const card = document.querySelector(".weather-card");
+  const inner = card && card.querySelector(".wc-inner");
+  if (!inner) return;
+  inner.style.transform = "";
+  const cs = getComputedStyle(card);
+  const avail = card.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const need = inner.offsetHeight;
+  if (avail > 0 && need > avail + 1) {
+    inner.style.transform = "scale(" + Math.max(0.55, avail / need).toFixed(4) + ")";
+  }
 }
 
 async function refresh() {
@@ -860,7 +887,9 @@ $("fs-btn").addEventListener("click", () => {
 });
 document.addEventListener("fullscreenchange", () => {
   $("fs-btn").textContent = document.fullscreenElement ? "⤢" : "⛶";
+  fitWeatherCard();
 });
+addEventListener("resize", fitWeatherCard);
 </script>
 </body>
 </html>
